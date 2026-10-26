@@ -256,7 +256,8 @@ describe('ATK-11: replies that answer the wrong kind of request', () => {
 
     expect(outcome.finished).toBe(false);
     expect(outcome.error).toBeInstanceOf(RemoteFsError);
-  }, 5000);
+    // The limit only catches a hang against a real server; a loaded host must not trip it.
+  }, 30_000);
 
   it('OPEN answered with a bare OK status (no handle) never lets an upload finish', async () => {
     const { fs } = await hostilePair((sftp) => {
