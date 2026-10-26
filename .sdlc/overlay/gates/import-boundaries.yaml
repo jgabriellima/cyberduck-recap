@@ -1,0 +1,19 @@
+apiVersion: sdlc/v1
+kind: GateContract
+metadata:
+  id: cyberduck/gate.import-boundaries
+  version: 1.0.0
+  summary: No code outside a protocol back-end imports a protocol library or a back-end module
+  title: Import boundaries hold
+spec:
+  evaluator: check
+  check: { tool: "toolchain:import-boundaries" }
+  criteria: >
+    The import-boundary tests (test/fs/boundary.test.ts, test/boundary/ssh2-imports.test.ts) pass:
+    src/fs imports only node built-ins and src/fs, and no file outside src/sftp and test/support
+    imports ssh2.
+  rules:
+    - id: clean
+      expr: output.exitCode == 0
+      message: "an import crosses a protocol boundary, or a boundary test is missing (exit {{ output.exitCode }}): {{ size(output.stdout) > 0 ? output.stdout : output.stderr }}"
+      category: architecture

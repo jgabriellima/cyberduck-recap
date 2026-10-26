@@ -1,0 +1,66 @@
+# What the specialization RULE-20261026-190823 applied, and where. The contracts themselves live in .sdlc/.
+schema: sdlc.specialization-receipt.v1
+run: RULE-20261026-190823
+applied_at: 2026-10-26T20:10:39.031Z
+proposal: sha256:4ad0f70eafae6f2c0bcaaed9eb1f778cc49d5df6c4829186da8c2d8ca8768ebf
+summary: summary.md
+files:
+  - path: .sdlc/sdlc.yaml
+    action: merged
+    before: sha256:84ce7f21113e3be356cc35e520e337722de24662909b1d20570db39f11c1eb67
+    after: sha256:e63d9356668a86b6f48524b1b61b3b612b9e1f251fab9ec1061bcbc6f9238a9c
+  - path: .sdlc/overlay/gates/import-boundaries.yaml
+    action: created
+    after: sha256:bff0e5ea1b7a360a774089c49e3049ee429630ac136ece6dd7e30a97655b4989
+  - path: .sdlc/overlay/gates/licences.yaml
+    action: created
+    after: sha256:db9e583206370c38a545a7eb2203367f719378aafad129f54d9fda86aa45ae2f
+  - path: .sdlc/overlay/standards/clean-room-licences.yaml
+    action: created
+    after: sha256:6b251e9115af9c760907247d44ea85252f1fa6352f26e295d076bc6c50d678b5
+  - path: .sdlc/overlay/standards/protocol-boundaries.yaml
+    action: created
+    after: sha256:d1db75837b293b6744d6cf47ca4b66f7afe702536ed9b5a2ce4196c21ed3ec0a
+  - path: .sdlc/overlay/standards/records-follow-changes.yaml
+    action: created
+    after: sha256:dbbc6486fc3e955b4bfe6878ec86a23a738df6385e38fdb5cb1c4c9511b0f87a
+  - path: .sdlc/overlay/standards/sanitised-server-text.yaml
+    action: created
+    after: sha256:923b7543d82c7b4e3e5646a32d1350faf4618df21a2e72757d8244370f9b953a
+  - path: .sdlc/overlay/standards/untrusted-server-replies.yaml
+    action: created
+    after: sha256:9cec311e7c3142460615a5730b3026bbe0c7ad0b26ed1da6bfaf24a8f5b58d63
+  - path: .sdlc/overlay/toolchains/project.yaml
+    action: created
+    after: sha256:a8c002ff3e287e5095de9c5ed6ef0089e63469f74e057faf878e688dd86d6133
+  - path: .sdlc/decisions/conventions.yaml
+    action: merged
+    before: sha256:75ce4755f6f4489371c4d86d40d85d39893af495de8c1a696873d884c1596afa
+    after: sha256:5e5cb426585c8ba85a8939d6e7d951009db1beb543409230957dca94688dcdba
+  - path: .sdlc/decisions/follow-ups.yaml
+    action: merged
+    before: sha256:684cd283bb147954fedb2fdbe0044becb984089149aea4d97b708a4842f19312
+    after: sha256:f41745d4204b193f293fa46b97d92dce784faaf6d2e1da89819d81e3dd7e011c
+  - path: .sdlc/decisions/interview.yaml
+    action: merged
+    before: sha256:577844eee8918ccf3a98dd546afee1391d76ce42302f3f11315364a260b57967
+    after: sha256:e42b70d44fe74bcf53904e335c3b71b0c0f4d998ac3952b18deac86b0371d909
+decisions:
+  added:
+    - follow-ups/sanitise-format-characters
+  replaced:
+    - conventions/architecture
+    - conventions/integration
+    - conventions/review
+    - follow-ups/scaffold
+    - follow-ups/product-requirements
+    - follow-ups/github-work-items
+    - follow-ups/github-actions-ci
+    - follow-ups/remote
+    - interview/integrations
+    - interview/agent-policy
+    - interview/conventions-code
+    - interview/conventions-testing
+    - interview/conventions-security
+    - interview/stack
+    - interview/github-token

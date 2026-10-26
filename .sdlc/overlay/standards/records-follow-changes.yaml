@@ -1,0 +1,16 @@
+apiVersion: sdlc/v1
+kind: Standard
+metadata:
+  id: cyberduck/standard.records-follow-changes
+  version: 1.0.0
+  summary: A change updates the design record or doc comment it makes untrue
+  description: >
+    From FEATURE-1's code review: CHUNK_SIZE changed from 32 KiB to 31 KiB while the WINDOW doc
+    comment still said 512 KiB in flight, and design.md did not record entries.ts or the new chunk
+    size. No tool compares prose with code: the review judges it.
+spec:
+  category: comments
+  statement: >-
+    A change that alters a value, module or rule recorded in the work item's design.md or in a doc
+    comment updates that record in the same change.
+  applies_to: { kinds: [feature, bug, refinement, incident, chore] }

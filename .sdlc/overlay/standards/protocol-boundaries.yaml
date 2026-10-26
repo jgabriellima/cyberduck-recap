@@ -1,0 +1,19 @@
+apiVersion: sdlc/v1
+kind: Standard
+metadata:
+  id: cyberduck/standard.protocol-boundaries
+  version: 1.0.0
+  summary: Only a protocol back-end imports its protocol library
+  description: >
+    From FEATURE-1 (ticket: "the CLI, queue, sync and UI must not depend on a specific protocol";
+    AC-2; G-7). The package entry point src/index.ts, which exports each back-end, and the test
+    fixture under test/support are the composition roots and may import a back-end. A change that
+    adds a module area (the CLI, queue, sync, UI) or a back-end extends the boundary tests to it
+    in the same change; the review checks that it does.
+spec:
+  category: architecture
+  statement: >-
+    Code outside a protocol back-end (src/fs/, the CLI, queue, sync and UI) does not import a
+    protocol library or a back-end module (e.g. ssh2, src/sftp/); an import-boundary test enforces it.
+  applies_to: { kinds: [feature, bug, refinement, incident, chore] }
+  enforced_by: { gate: cyberduck/gate.import-boundaries, at: implement }

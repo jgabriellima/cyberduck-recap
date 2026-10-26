@@ -1,0 +1,20 @@
+apiVersion: sdlc/v1
+kind: Standard
+metadata:
+  id: cyberduck/standard.clean-room-licences
+  version: 1.0.0
+  summary: No Cyberduck code, and only permissive licences in production
+  description: >
+    From FEATURE-1 (ticket: "Cyberduck is a behaviour reference only (GPL; no code reuse)"; AC-23).
+    The gate verifies the licence half on every change. No tool verifies that no Cyberduck code is
+    reused, ported or translated: the review judges that half, and a design cites Cyberduck only
+    for behaviour.
+spec:
+  category: security
+  statement: >-
+    No Cyberduck source code is reused, ported or translated, and every production dependency
+    (direct and transitive) has a licence on the permissive allow-list (MIT, ISC, BSD-2-Clause,
+    BSD-3-Clause, 0BSD, Apache-2.0, Unlicense, CC0-1.0, BlueOak-1.0.0), checked by
+    test/licenses.test.ts.
+  applies_to: { kinds: [feature, bug, refinement, incident, chore] }
+  enforced_by: { gate: cyberduck/gate.licences, at: implement }

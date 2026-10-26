@@ -1,0 +1,19 @@
+apiVersion: sdlc/v1
+kind: Standard
+metadata:
+  id: cyberduck/standard.sanitised-server-text
+  version: 1.0.0
+  summary: Server-supplied text is escaped before it reaches an error or a log
+  description: >
+    From FEATURE-1's design pre-mortem and code review (security): sanitizeServerText
+    (src/sftp/sanitize.ts) passed bidi overrides and U+2028/U+2029. Whether every place that puts
+    server text in an error message or a log goes through the sanitiser is the review's judgement;
+    the sanitiser's own tests run under sdlc/gate.tests-pass. The sanitiser on main does not yet
+    escape the format characters; the follow-up sanitise-format-characters fixes it.
+spec:
+  category: security
+  statement: >-
+    Server-supplied text (status messages, banners, file names) placed in an error message or log is
+    sanitised: C0/C1 control characters, DEL and Unicode format characters (bidi overrides
+    U+202A-U+202E, U+2066-U+2069, separators U+2028/U+2029) are escaped.
+  applies_to: { kinds: [feature, bug, refinement, incident] }

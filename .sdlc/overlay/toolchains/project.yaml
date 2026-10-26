@@ -1,0 +1,21 @@
+apiVersion: sdlc/v1
+kind: Toolchain
+metadata:
+  id: cyberduck/toolchain.project
+  version: 1.0.0
+  summary: The project's own checks beside the node-pnpm preset — import boundaries and production licences
+  description: >
+    Each tool runs named Vitest files of the project, so a gate over it fails when a check fails
+    and also when its test file is removed or renamed (Vitest exits 1 when no file matches).
+    The preset sdlc/toolchain.node-pnpm keeps every other tool.
+spec:
+  components:
+    - { name: vitest, version: ">=3", role: test-framework, decision: interview/stack }
+  tools:
+    import-boundaries:
+      run: [pnpm, exec, vitest, run, test/fs/boundary.test.ts, test/boundary/ssh2-imports.test.ts]
+      requires: { binary: pnpm }
+    licences:
+      run: [pnpm, exec, vitest, run, test/licenses.test.ts]
+      requires: { binary: pnpm }
+      cache: false
