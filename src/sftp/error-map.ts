@@ -34,11 +34,35 @@ export class SftpStatusError extends Error {
  */
 export class MalformedReplyError extends Error {
   override readonly name = 'MalformedReplyError';
+  /** What the reply lacked, named by our code, never by the server. */
+  readonly what: string;
 
   constructor(what: string) {
     super(`the server's reply carried no ${what}`);
+    this.what = what;
+  }
+
+  /**
+   * A fresh copy of a reply that claims to be malformed. `instanceof` trusts the prototype chain,
+   * so the original can be a forgery or a Proxy: its message is never read, and `what` is kept
+   * only when it is one of the parts our channel names.
+   */
+  static copyOf(error: unknown): MalformedReplyError {
+    const what = readProperty(error, 'what');
+    return typeof what === 'string' && MALFORMED_PARTS.has(what)
+      ? new MalformedReplyError(what)
+      : new MalformedReplyError('valid payload');
   }
 }
+
+/** The parts `toChannel` (connection.ts) checks a reply for. */
+const MALFORMED_PARTS: ReadonlySet<string> = new Set([
+  'file handle',
+  'directory handle',
+  'directory entries',
+  'attributes',
+  'data',
+]);
 
 // These reads run inside ssh2 event handlers and callbacks: a getter or Proxy trap that throws
 // there escapes as an uncaught exception instead of a RemoteFsError, so a throwing read counts
@@ -162,26 +186,42 @@ export function mapStatus(
       return operationError(
         'OPERATION_FAILED',
         context,
-        text === '' ? `server status ${status}` : `server said "${text}"`,
+        // Number(): a forged status error can carry an object whose toString returns raw text.
+        text === ''
+          ? `server status ${Number(status)}`
+          : `server said "${text}"`,
       );
     }
   }
 }
 
-/** Puts the operation's paths on whatever a session or channel failure produced. */
+/**
+ * Puts the operation's paths on whatever a session or channel failure produced. It never throws:
+ * it runs in stream rejection handlers, where a throw leaves the stream undestroyed and fires an
+ * unhandled rejection. So a throwing read falls back to a generic error, and a malformed reply's message is rebuilt from
+ * our own text even when the session already did so.
+ */
 export function toRemoteFsError(
   error: unknown,
   context: OperationContext,
 ): RemoteFsError {
-  if (error instanceof SftpStatusError) {
-    return mapStatus(error.status, error.serverText, context);
-  }
-  if (error instanceof MalformedReplyError) {
-    return operationError('OPERATION_FAILED', context, error.message);
-  }
-  if (error instanceof RemoteFsError) {
-    if (error.path !== undefined) return error;
-    return operationError(error.code, context, reasonFor(error.code));
+  try {
+    if (error instanceof SftpStatusError) {
+      return mapStatus(error.status, error.serverText, context);
+    }
+    if (error instanceof MalformedReplyError) {
+      return operationError(
+        'OPERATION_FAILED',
+        context,
+        MalformedReplyError.copyOf(error).message,
+      );
+    }
+    if (error instanceof RemoteFsError) {
+      if (error.path !== undefined) return error;
+      return operationError(error.code, context, reasonFor(error.code));
+    }
+  } catch {
+    // A throwing trap or getter makes the failure unknown, as below.
   }
   return operationError(
     'OPERATION_FAILED',

@@ -168,3 +168,53 @@ describe('SFTP status mapping table (M-2)', () => {
     expect(messageOf(null)).toBe('');
   });
 });
+
+describe('toRemoteFsError on hostile malformed replies', () => {
+  /* eslint-disable-next-line no-control-regex -- the set under test is control and format characters */
+  const unsafe = /[\u0007\u009b\u2028\u202e\u2066]/u;
+  const forged = (message: unknown): unknown =>
+    Object.create(MalformedReplyError.prototype, {
+      message: { value: message },
+    });
+
+  it('drops the hostile message of a forged malformed reply', () => {
+    const error = toRemoteFsError(
+      forged(`a\u202eb\u2066c\u2028d\u0007${'x'.repeat(600)}`),
+      context,
+    );
+    expect(error.code).toBe('OPERATION_FAILED');
+    expect(error.message).not.toMatch(unsafe);
+    expect(error.message.length).toBeLessThan(300);
+  });
+
+  it('maps a malformed reply whose reads throw to a typed error, never a throw', () => {
+    const trap = (): never => {
+      throw new Error('trap');
+    };
+    const proxy = new Proxy(new MalformedReplyError('handle'), { get: trap });
+    expect(toRemoteFsError(proxy, context)).toBeInstanceOf(RemoteFsError);
+    expect(toRemoteFsError(forged({ toString: trap }), context).message).toBe(
+      "stat /p: the server's reply carried no valid payload",
+    );
+    const status = new Proxy(new SftpStatusError(4, 'x'), { get: trap });
+    expect(toRemoteFsError(status, context).code).toBe('OPERATION_FAILED');
+  });
+
+  it('copyOf rebuilds the message from our own text, never the original', () => {
+    const copy = MalformedReplyError.copyOf(forged('a\u202eb'));
+    expect(Object.getPrototypeOf(copy)).toBe(MalformedReplyError.prototype);
+    expect(copy.message).toBe("the server's reply carried no valid payload");
+    expect(
+      MalformedReplyError.copyOf(new MalformedReplyError('attributes')).message,
+    ).toBe("the server's reply carried no attributes");
+  });
+
+  it('a forged status error with a non-number status names no raw text', () => {
+    const status: unknown = Object.create(SftpStatusError.prototype, {
+      status: { value: { toString: () => 'a\u202eb' } },
+      serverText: { value: '' },
+    });
+    const error = toRemoteFsError(status, context);
+    expect(error.message).toBe('stat /p: server status NaN');
+  });
+});

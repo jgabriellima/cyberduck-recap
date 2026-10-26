@@ -1,6 +1,7 @@
 import { RemoteFsError } from '../fs/errors.js';
 import {
   isMalformedReply,
+  MalformedReplyError,
   messageOf,
   SftpStatusError,
   statusOf,
@@ -138,7 +139,8 @@ export class Session {
   }
 
   /**
-   * Runs one SFTP request. Rejects with `SftpStatusError` for a server status, with a
+   * Runs one SFTP request. Rejects with `SftpStatusError` for a server status, with a fresh
+   * `MalformedReplyError` (our own message) for a reply that lacks its payload, with a
    * `RemoteFsError` (CONNECTION_LOST or NOT_CONNECTED, without a path) when the session ends.
    */
   request<T>(
@@ -164,7 +166,8 @@ export class Session {
         // The error comes from ssh2 or a hostile server: every read of it is guarded, because a
         // throw here escapes into ssh2 after `settled` is set and the request never settles.
         if (isMalformedReply(error)) {
-          reject(error);
+          // `instanceof` passes forgeries and Proxies: callers get our own copy, never the object.
+          reject(MalformedReplyError.copyOf(error));
           return;
         }
         const status = statusOf(error);
