@@ -493,6 +493,9 @@ function transportOf(
     sftp: toChannel(sftp),
     end: () => client.end(),
     destroy: () => client.destroy(),
+    // realpath is the cheapest request every server answers; its reply is irrelevant, only the
+    // write matters: on a dead connection it fails and ssh2 closes the client.
+    probe: () => sftp.realpath('.', () => undefined),
     onClose: (listener) => {
       if (closed) listener();
       else closeListeners.push(listener);

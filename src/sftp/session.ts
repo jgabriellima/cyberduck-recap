@@ -54,6 +54,12 @@ export interface SessionTransport {
   end(): void;
   destroy(): void;
   onClose(listener: () => void): void;
+  /**
+   * Sends something cheap whose only purpose is to write on the connection. A peer that vanished
+   * is not always reported to a socket that is only reading (observed on macOS loopback after a
+   * reset); a write surfaces it at once instead of at the next keepalive.
+   */
+  probe?(): void;
 }
 
 /** A stream the session must fail when it ends; the stream builds the error with its own path. */
@@ -66,11 +72,15 @@ export interface SessionOptions {
   readonly stallTimeoutMs?: number;
   /** How long `disconnect()` waits for a graceful close before destroying the transport. */
   readonly closeTimeoutMs?: number;
+  /** Internal: tests shorten the silence after which the connection is probed. */
+  readonly probeAfterMs?: number;
 }
 
 /** G-6: requests pending with no SFTP reply for this long mean the server is stuck. */
 export const STALL_TIMEOUT_MS = 120_000;
 const DEFAULT_CLOSE_TIMEOUT_MS = 20_000;
+/** Silence, with requests outstanding, after which the connection is probed for liveness. */
+export const PROBE_AFTER_MS = 1_000;
 
 interface Settler {
   settled: boolean;
@@ -88,11 +98,13 @@ export class Session {
   readonly #transport: SessionTransport;
   readonly #stallTimeoutMs: number;
   readonly #closeTimeoutMs: number;
+  readonly #probeAfterMs: number;
   readonly #inFlight = new Set<Settler>();
   readonly #streams = new Set<TrackedStream>();
   readonly #lostListeners: (() => void)[] = [];
   #state: SessionState = 'open';
   #lastProgress = 0;
+  #lastProbe = 0;
   #watchdog: NodeJS.Timeout | undefined;
   #closed: Promise<void>;
   #markClosed!: () => void;
@@ -101,6 +113,7 @@ export class Session {
     this.#transport = transport;
     this.#stallTimeoutMs = options.stallTimeoutMs ?? STALL_TIMEOUT_MS;
     this.#closeTimeoutMs = options.closeTimeoutMs ?? DEFAULT_CLOSE_TIMEOUT_MS;
+    this.#probeAfterMs = options.probeAfterMs ?? PROBE_AFTER_MS;
     this.#closed = new Promise((resolve) => {
       this.#markClosed = resolve;
     });
@@ -218,20 +231,44 @@ export class Session {
   }
 
   // The watchdog measures progress, not request age: a slow link that keeps answering is never
-  // cut, and a paused consumer leaves no request outstanding (G-6).
+  // cut, and a paused consumer leaves no request outstanding (G-6). While replies are late it also
+  // probes the connection, so a peer that is gone is noticed in about a second.
   #armWatchdog(): void {
     if (this.#watchdog !== undefined || this.#state !== 'open') return;
-    const due = this.#lastProgress + this.#stallTimeoutMs - Date.now();
-    this.#watchdog = setTimeout(() => this.#checkStall(), Math.max(due, 0));
+    const stallDue = this.#lastProgress + this.#stallTimeoutMs;
+    const due =
+      this.#transport.probe === undefined
+        ? stallDue
+        : Math.min(
+            stallDue,
+            Math.max(this.#lastProgress, this.#lastProbe) + this.#probeAfterMs,
+          );
+    this.#watchdog = setTimeout(
+      () => this.#checkStall(),
+      Math.max(due - Date.now(), 0),
+    );
     this.#watchdog.unref();
   }
 
   #checkStall(): void {
     this.#watchdog = undefined;
     if (this.#state !== 'open' || this.#inFlight.size === 0) return;
-    if (Date.now() - this.#lastProgress >= this.#stallTimeoutMs) {
+    const now = Date.now();
+    if (now - this.#lastProgress >= this.#stallTimeoutMs) {
       this.#lose();
       return;
+    }
+    const quietSince = Math.max(this.#lastProgress, this.#lastProbe);
+    if (
+      this.#transport.probe !== undefined &&
+      now - quietSince >= this.#probeAfterMs
+    ) {
+      this.#lastProbe = now;
+      try {
+        this.#transport.probe();
+      } catch {
+        // A probe that cannot even be sent changes nothing: the stall threshold still applies.
+      }
     }
     this.#armWatchdog();
   }

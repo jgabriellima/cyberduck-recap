@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RemoteFsError } from '../../src/index.js';
 import { SftpStatusError } from '../../src/sftp/error-map.js';
-import { Session, STALL_TIMEOUT_MS } from '../../src/sftp/session.js';
+import {
+  PROBE_AFTER_MS,
+  Session,
+  STALL_TIMEOUT_MS,
+} from '../../src/sftp/session.js';
 import { FakeTransport, statusError } from '../support/fake-channel.js';
 import { expectRejects } from '../support/remote-fs-assertions.js';
 
@@ -186,5 +190,72 @@ describe('Session stall watchdog (G-6)', () => {
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(await outcome).toMatchObject({ code: 'CONNECTION_LOST' });
+  });
+});
+
+describe('Session liveness probe (AC-20)', () => {
+  /** A peer that vanished without the reading socket being told: only a write reveals it. */
+  class SilentlyDeadTransport extends FakeTransport {
+    probes = 0;
+    probe(): void {
+      this.probes += 1;
+      this.emitClose();
+    }
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('probes a silent connection with requests outstanding, so a vanished peer becomes CONNECTION_LOST in a second', async () => {
+    const transport = new SilentlyDeadTransport();
+    const session = new Session(transport);
+    const abort = vi.fn();
+    session.track({ abort });
+    const outcome = stat(session).catch((error: unknown) => error);
+
+    await vi.advanceTimersByTimeAsync(PROBE_AFTER_MS - 1);
+    expect(transport.probes).toBe(0);
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(transport.probes).toBe(1);
+    expect(await outcome).toMatchObject({ code: 'CONNECTION_LOST' });
+    expect(abort).toHaveBeenCalledWith('CONNECTION_LOST');
+  });
+
+  it('a live but slow server is probed once per quiet second and never cut before the stall threshold', async () => {
+    const transport = new FakeTransport();
+    let probes = 0;
+    Object.assign(transport, { probe: () => (probes += 1) });
+    const session = new Session(transport);
+    const pending = stat(session);
+
+    await vi.advanceTimersByTimeAsync(PROBE_AFTER_MS * 5);
+
+    expect(probes).toBe(5);
+    expect(session.isOpen).toBe(true);
+    transport.sftp.take('stat')[0]?.reply(undefined, { size: 1 });
+    await expect(pending).resolves.toEqual({ size: 1 });
+  });
+
+  it('an idle session or one whose replies keep coming is not probed', async () => {
+    const transport = new FakeTransport();
+    let probes = 0;
+    Object.assign(transport, { probe: () => (probes += 1) });
+    const session = new Session(transport);
+
+    await vi.advanceTimersByTimeAsync(PROBE_AFTER_MS * 3);
+    for (let i = 0; i < 5; i += 1) {
+      const call = stat(session, `/q${i}`);
+      await vi.advanceTimersByTimeAsync(PROBE_AFTER_MS / 2);
+      transport.sftp.takeOne('stat')?.reply(undefined, {});
+      await call;
+    }
+
+    expect(probes).toBe(0);
   });
 });
