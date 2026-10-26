@@ -39,10 +39,12 @@ function generatePair(passphrase?: string): {
 } {
   return passphrase === undefined
     ? utils.generateKeyPairSync('ed25519')
-    : utils.generateKeyPairSync('ed25519', {
+    : // One bcrypt round: the key format is the same as with OpenSSH's 16, and these keys are
+      // throwaway test material, so the extra seconds of pure-JS bcrypt buy nothing but timeouts.
+      utils.generateKeyPairSync('ed25519', {
         passphrase,
         cipher: 'aes256-ctr',
-        rounds: 16,
+        rounds: 1,
       });
 }
 
