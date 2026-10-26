@@ -11,8 +11,13 @@ import {
 import type { Session } from './session.js';
 import { isDirectory } from './entries.js';
 
-/** 32 KiB is the SFTP v3 request size every server must accept. FEATURE-6 may tune both. */
-export const CHUNK_SIZE = 32 * 1024;
+/**
+ * Under the 32 KiB every SFTP v3 server must accept, and under ssh2's own per-request limit for
+ * servers that are not OpenSSH (34000 bytes less 2048 of packet overhead): a larger chunk is split
+ * by ssh2 into two requests, the second sent only after the first is answered, which doubles the
+ * requests and lets them continue after backpressure stopped the stream. FEATURE-6 may tune both.
+ */
+export const CHUNK_SIZE = 31 * 1024;
 /** Outstanding requests per stream: at most 512 KiB in flight, enough to hide link latency. */
 export const WINDOW = 16;
 /** G-5: consecutive empty, non-EOF replies at one offset before a read stream gives up. */
@@ -89,8 +94,7 @@ class SftpReadStream extends Readable {
       return;
     }
     this.#untrack = session.track({
-      abort: (code) =>
-        this.destroy(operationError(code, this.#context, reasonFor(code))),
+      abort: (code) => abortStream(this, this.#context, code),
     });
     session
       .request<Buffer>((sftp, done) =>
@@ -98,6 +102,10 @@ class SftpReadStream extends Readable {
       )
       .then(
         (handle) => {
+          if (!Buffer.isBuffer(handle)) {
+            callback(malformedOpen(this.#context));
+            return;
+          }
           this.#handle = handle;
           callback();
         },
@@ -133,7 +141,12 @@ class SftpReadStream extends Readable {
   #request(slot: ReadSlot): void {
     const session = this.#session;
     const handle = this.#handle;
-    if (session === undefined || handle === undefined) return;
+    if (session === undefined) return;
+    // Never silently skip a request: a stream with nothing outstanding would wait forever.
+    if (handle === undefined) {
+      this.destroy(malformedOpen(this.#context));
+      return;
+    }
     session
       .request<Buffer>((sftp, done) =>
         sftp.read(handle, slot.offset, slot.length, done),
@@ -274,8 +287,7 @@ class SftpWriteStream extends Writable {
       return;
     }
     this.#untrack = session.track({
-      abort: (code) =>
-        this.destroy(operationError(code, this.#context, reasonFor(code))),
+      abort: (code) => abortStream(this, this.#context, code),
     });
     session
       .request<Buffer>((sftp, done) =>
@@ -283,6 +295,10 @@ class SftpWriteStream extends Writable {
       )
       .then(
         (handle) => {
+          if (!Buffer.isBuffer(handle)) {
+            callback(malformedOpen(this.#context));
+            return;
+          }
           this.#handle = handle;
           callback();
         },
@@ -325,7 +341,11 @@ class SftpWriteStream extends Writable {
   #send(piece: Buffer): void {
     const session = this.#session;
     const handle = this.#handle;
-    if (session === undefined || handle === undefined) return;
+    if (session === undefined) return;
+    if (handle === undefined) {
+      this.destroy(malformedOpen(this.#context));
+      return;
+    }
     const position = this.#offset;
     this.#offset += piece.length;
     this.#outstanding += 1;
@@ -381,6 +401,30 @@ class SftpWriteStream extends Writable {
     this.#handle = undefined;
     callback(error);
   }
+}
+
+/**
+ * Teardown fails an open stream with a typed error, but an abandoned stream nobody listens to is
+ * only closed: emitting `error` without a listener would crash the caller's process.
+ */
+function abortStream(
+  stream: Readable | Writable,
+  context: OperationContext,
+  code: 'CONNECTION_LOST' | 'NOT_CONNECTED',
+): void {
+  if (stream.listenerCount('error') === 0) {
+    stream.destroy();
+    return;
+  }
+  stream.destroy(operationError(code, context, reasonFor(code)));
+}
+
+function malformedOpen(context: OperationContext): RemoteFsError {
+  return operationError(
+    'OPERATION_FAILED',
+    context,
+    'the server opened the file without returning a handle',
+  );
 }
 
 function closeQuietly(

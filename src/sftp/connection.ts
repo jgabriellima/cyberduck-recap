@@ -11,7 +11,11 @@ import type {
 } from 'ssh2';
 import { RemoteFsError } from '../fs/errors.js';
 import { serverHostKeyAlgorithms } from './algorithms.js';
-import { classifyConnectError, sanitizedCause } from './error-map.js';
+import {
+  MalformedReplyError,
+  classifyConnectError,
+  sanitizedCause,
+} from './error-map.js';
 import { fingerprint, keyType } from './host-key.js';
 import {
   appendKnownHost,
@@ -110,15 +114,58 @@ function parsePrivateKey(options: ValidatedOptions): ParsedKey | undefined {
   throw authFailed(username, host, port, 'the private key could not be parsed');
 }
 
-function toChannel(sftp: SFTPWrapper): SftpChannel {
+type Reply<T> = (error: Error | undefined, value?: T) => void;
+
+/**
+ * Passes a successful reply on only when it carries what the request needs. ssh2 hands a bare OK
+ * status to the callback with no value, which would otherwise surface as `undefined` (ATK-11).
+ */
+function expecting<T>(
+  what: string,
+  isValid: (value: unknown) => value is T,
+  callback: Reply<T>,
+): (error: Error | undefined | null, value?: unknown) => void {
+  return (error, value) => {
+    if (error) callback(error);
+    else if (isValid(value)) callback(undefined, value);
+    else callback(new MalformedReplyError(what));
+  };
+}
+
+const isHandle = (value: unknown): value is Buffer => Buffer.isBuffer(value);
+const isAttributes = (value: unknown): value is Stats =>
+  typeof value === 'object' && value !== null;
+const isEntryList = (value: unknown): value is FileEntry[] =>
+  Array.isArray(value) &&
+  value.every(
+    (entry: unknown) =>
+      isAttributes(entry) &&
+      typeof (entry as { filename?: unknown }).filename === 'string' &&
+      isAttributes((entry as { attrs?: unknown }).attrs),
+  );
+
+/** ssh2 accepts readdir options at runtime; @types/ssh2 lags the library and omits them (M-6). */
+interface SftpWithReaddirOptions {
+  readdir(
+    handle: Buffer,
+    options: { readonly full: boolean },
+    callback: (error: Error | undefined, list?: unknown) => void,
+  ): void;
+}
+
+/** Adapts ssh2's SFTP object to the channel the session drives. Exported for unit tests. */
+export function toChannel(sftp: SFTPWrapper): SftpChannel {
   return {
-    open: (path, mode, callback) => sftp.open(path, mode, callback),
+    open: (path, mode, callback) =>
+      sftp.open(path, mode, expecting('file handle', isHandle, callback)),
     close: (handle, callback) => sftp.close(handle, (error) => callback(error)),
     read: (handle, position, length, callback) => {
       const buffer = Buffer.alloc(length);
-      const onRead = (error: Error | undefined, bytesRead: number): void => {
+      const onRead = (error: Error | undefined, bytesRead: unknown): void => {
         if (error) callback(error);
-        else callback(undefined, buffer.subarray(0, bytesRead));
+        else if (typeof bytesRead !== 'number') {
+          callback(new MalformedReplyError('data'));
+        } else callback(undefined, buffer.subarray(0, bytesRead));
       };
       // ssh2's own readFile sets this flag: without it EOF reads as a zero-length success, which
       // could not be told apart from an empty reply (G-5).
@@ -129,19 +176,20 @@ function toChannel(sftp: SFTPWrapper): SftpChannel {
       sftp.write(handle, data, 0, data.length, position, (error) =>
         callback(error),
       ),
-    opendir: (path, callback) => sftp.opendir(path, callback),
+    opendir: (path, callback) =>
+      sftp.opendir(path, expecting('directory handle', isHandle, callback)),
+    // `full: true` skips ssh2's own `.`/`..` filter, which throws inside ssh2 on a reply without
+    // names; the operations drop those entries themselves.
     readdir: (handle, callback) =>
-      sftp.readdir(handle, (error: Error | undefined, list: FileEntry[]) =>
-        callback(error, list),
+      (sftp as unknown as SftpWithReaddirOptions).readdir(
+        handle,
+        { full: true },
+        expecting('directory entries', isEntryList, callback),
       ),
     stat: (path, callback) =>
-      sftp.stat(path, (error: Error | undefined, stats: Stats) =>
-        callback(error, stats),
-      ),
+      sftp.stat(path, expecting('attributes', isAttributes, callback)),
     lstat: (path, callback) =>
-      sftp.lstat(path, (error: Error | undefined, stats: Stats) =>
-        callback(error, stats),
-      ),
+      sftp.lstat(path, expecting('attributes', isAttributes, callback)),
     mkdir: (path, callback) => sftp.mkdir(path, (error) => callback(error)),
     rmdir: (path, callback) => sftp.rmdir(path, (error) => callback(error)),
     unlink: (path, callback) => sftp.unlink(path, (error) => callback(error)),

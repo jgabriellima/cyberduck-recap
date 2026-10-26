@@ -1,5 +1,5 @@
 import { RemoteFsError } from '../fs/errors.js';
-import { SftpStatusError, statusOf } from './error-map.js';
+import { MalformedReplyError, SftpStatusError, statusOf } from './error-map.js';
 
 export type SftpCallback<T> = (
   error: Error | null | undefined,
@@ -141,6 +141,10 @@ export class Session {
         this.#lastProgress = Date.now();
         if (error === null || error === undefined) {
           resolve(value as T);
+          return;
+        }
+        if (error instanceof MalformedReplyError) {
+          reject(error);
           return;
         }
         const status = statusOf(error);

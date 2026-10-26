@@ -28,6 +28,18 @@ export class SftpStatusError extends Error {
   }
 }
 
+/**
+ * A reply that lacks what its request needs (no handle for OPEN, no attributes for STAT, no names
+ * for READDIR): the server is broken or hostile, but the session itself is still usable.
+ */
+export class MalformedReplyError extends Error {
+  override readonly name = 'MalformedReplyError';
+
+  constructor(what: string) {
+    super(`the server's reply carried no ${what}`);
+  }
+}
+
 /** ssh2 marks a server status reply with a numeric `code`; anything else is a transport failure. */
 export function statusOf(error: unknown): number | undefined {
   if (typeof error !== 'object' || error === null) return undefined;
@@ -137,6 +149,9 @@ export function toRemoteFsError(
 ): RemoteFsError {
   if (error instanceof SftpStatusError) {
     return mapStatus(error.status, error.serverText, context);
+  }
+  if (error instanceof MalformedReplyError) {
+    return operationError('OPERATION_FAILED', context, error.message);
   }
   if (error instanceof RemoteFsError) {
     if (error.path !== undefined) return error;
