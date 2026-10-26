@@ -1,5 +1,10 @@
 import { RemoteFsError } from '../fs/errors.js';
-import { MalformedReplyError, SftpStatusError, statusOf } from './error-map.js';
+import {
+  isMalformedReply,
+  messageOf,
+  SftpStatusError,
+  statusOf,
+} from './error-map.js';
 
 export type SftpCallback<T> = (
   error: Error | null | undefined,
@@ -156,7 +161,9 @@ export class Session {
           resolve(value as T);
           return;
         }
-        if (error instanceof MalformedReplyError) {
+        // The error comes from ssh2 or a hostile server: every read of it is guarded, because a
+        // throw here escapes into ssh2 after `settled` is set and the request never settles.
+        if (isMalformedReply(error)) {
           reject(error);
           return;
         }
@@ -168,7 +175,7 @@ export class Session {
           this.#lose();
           return;
         }
-        reject(new SftpStatusError(status, error.message));
+        reject(new SftpStatusError(status, messageOf(error)));
       };
       try {
         start(this.#transport.sftp, done);

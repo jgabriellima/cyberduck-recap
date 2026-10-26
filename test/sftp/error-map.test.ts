@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { RemoteFsError } from '../../src/index.js';
 import {
+  MalformedReplyError,
   SFTP_STATUS,
   SftpStatusError,
   classifyConnectError,
+  isMalformedReply,
   mapStatus,
+  messageOf,
   sanitizedCause,
   statusOf,
   toRemoteFsError,
@@ -145,5 +148,23 @@ describe('SFTP status mapping table (M-2)', () => {
       expect(statusOf(error)).toBeUndefined();
       expect(classifyConnectError(error)).toBe('CONNECTION_FAILED');
     }
+  });
+
+  it('isMalformedReply and messageOf answer a hostile error without throwing', () => {
+    const fail = (): never => {
+      throw new Error('trap');
+    };
+    const proxy = new Proxy(new MalformedReplyError('handle'), {
+      getPrototypeOf: fail,
+    });
+    const getter = new Error('placeholder');
+    Object.defineProperty(getter, 'message', { get: fail });
+
+    expect(isMalformedReply(new MalformedReplyError('handle'))).toBe(true);
+    expect(isMalformedReply(proxy)).toBe(false);
+    expect(messageOf(new Error('denied'))).toBe('denied');
+    expect(messageOf(getter)).toBe('');
+    expect(messageOf(Object.assign(new Error(), { message: 42 }))).toBe('');
+    expect(messageOf(null)).toBe('');
   });
 });

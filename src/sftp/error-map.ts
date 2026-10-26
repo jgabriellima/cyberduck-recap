@@ -52,6 +52,21 @@ function readProperty(value: unknown, key: string): unknown {
   }
 }
 
+/** A guarded `instanceof`: a Proxy whose getPrototypeOf trap throws is not a malformed reply. */
+export function isMalformedReply(error: unknown): error is MalformedReplyError {
+  try {
+    return error instanceof MalformedReplyError;
+  } catch {
+    return false;
+  }
+}
+
+/** The error's raw message for a status reply; a throwing or non-string message counts as none. */
+export function messageOf(error: unknown): string {
+  const message = readProperty(error, 'message');
+  return typeof message === 'string' ? message : '';
+}
+
 /** ssh2 marks a server status reply with a numeric `code`; anything else is a transport failure. */
 export function statusOf(error: unknown): number | undefined {
   const code = readProperty(error, 'code');
