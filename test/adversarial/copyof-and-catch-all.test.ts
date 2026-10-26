@@ -480,19 +480,12 @@ describe('ATK-59: no request path hands a server value to the forged-RemoteFsErr
     expectOurs(await outcomeOf(result), forged, '/d');
   });
 
-  // A loss during OPEN currently emits an AggregateError of two of our own errors (ATK-62
-  // attacks that): here only the passthrough claim is judged, on each error it holds.
   function expectNoneIsForged(
     outcome: unknown,
     forged: unknown,
     path: string,
   ): void {
-    const inner =
-      outcome instanceof AggregateError
-        ? (outcome.errors as unknown[])
-        : [outcome];
-    expect(inner.length).toBeGreaterThan(0);
-    for (const error of inner) expectOurs(error, forged, path);
+    expectOurs(outcome, forged, path);
   }
 
   async function streamError(
@@ -686,13 +679,22 @@ describe('ATK-62: a connection that ends while a stream opens errors it with one
     ['write', (s) => createSftpWriteStream(s, '/f')],
   ];
 
+  const reasons: Record<string, string> = {
+    CONNECTION_LOST: 'the connection was lost',
+    NOT_CONNECTED: 'not connected',
+  };
+
   for (const [kind, create] of kinds) {
     it.each(endings)(`${kind} stream: %s`, async (_label, code, end) => {
       const transport = new FakeTransport();
       const session = new Session(transport);
       const stream = create(session);
       const errors: unknown[] = [];
+      let closes = 0;
       stream.on('error', (e: unknown) => errors.push(e));
+      stream.on('close', () => {
+        closes += 1;
+      });
       await settleWithin(20, () => transport.sftp.pending.length > 0);
       end(transport, session);
       await settleWithin(30, () => errors.length > 0);
@@ -702,6 +704,13 @@ describe('ATK-62: a connection that ends while a stream opens errors it with one
       const error = expectTypedAndSafe(errors[0]);
       expect(error.code).toBe(code);
       expect(error.path).toBe('/f');
+      // AC-19: the library's own text only, so no text of the ending error (a host, a port,
+      // 'No response from server') reaches the caller, neither in the message nor in a cause.
+      expect(error.message).toBe(`${kind} /f: ${reasons[code]}`);
+      expect(error.message).not.toContain('No response from server');
+      expect(error.cause).toBeUndefined();
+      expect(stream.destroyed).toBe(true);
+      expect(closes).toBe(1);
       expect(unhandled).toEqual([]);
     });
   }
