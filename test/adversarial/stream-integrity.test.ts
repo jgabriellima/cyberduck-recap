@@ -99,11 +99,12 @@ describe('ATK-15: a consumer that stops reading', () => {
     );
     // Round trips on the same channel: reads the stream had in flight are answered by now.
     for (let i = 0; i < 3; i += 1) await fs.stat('/big.bin');
-    const settled = fixture.stats.requests;
+    const readsSettled = fixture.stats.requestsByType['READ'] ?? 0;
     for (let i = 0; i < 3; i += 1) await fs.stat('/big.bin');
 
-    // The stream asks for nothing more while nobody reads: only our three stats reached the server.
-    expect(fixture.stats.requests - settled).toBe(3);
+    // Only READs measure the attack: the session's liveness probe (a REALPATH when a reply is late
+    // under load) is other traffic on the same channel, not the stream asking for data.
+    expect(fixture.stats.requestsByType['READ'] ?? 0).toBe(readsSettled);
     // A full buffer plus at most one window of 16 × 32 KiB answered behind it, twice over at most.
     expect(fixture.stats.bytesTransferred).toBeLessThanOrEqual(
       2 * (stream.readableHighWaterMark + 16 * 32 * 1024),

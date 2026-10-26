@@ -96,6 +96,8 @@ export interface SftpServerStats {
   bytesTransferred: number;
   /** SFTP requests received, answered or not. */
   requests: number;
+  /** SFTP requests received, by type (`READ`, `REALPATH`, …), so a test can tell traffic apart. */
+  requestsByType: Record<string, number>;
 }
 
 export interface SftpServerFixture {
@@ -174,6 +176,7 @@ export async function startSftpServer(
     sessions: 0,
     bytesTransferred: 0,
     requests: 0,
+    requestsByType: {},
   };
   const sockets = new Set<Socket>();
   const denied = new Set<string>();
@@ -299,6 +302,7 @@ export async function startSftpServer(
     ): void => {
       sftp.on(event, (id: number, ...args: never[]) => {
         stats.requests += 1;
+        stats.requestsByType[event] = (stats.requestsByType[event] ?? 0) + 1;
         if (stalled) return;
         if (isDenied(...paths(...args))) {
           status(id, STATUS.PERMISSION_DENIED, 'Permission denied');
