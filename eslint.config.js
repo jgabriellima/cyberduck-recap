@@ -27,5 +27,10 @@ export default tseslint.config(
       },
     },
   },
+  {
+    // The library's only output is its errors (spec): it never logs.
+    files: ['src/**/*.ts'],
+    rules: { 'no-console': 'error' },
+  },
   prettier,
 );
