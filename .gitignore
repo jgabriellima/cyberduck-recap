@@ -1,0 +1,10 @@
+# sdlc-engine: the generated runtime, the engine's local state and local credentials
+/.claude/
+/CLAUDE.md
+/.sdlc/materialized.json
+/.outputs/engine/
+/.outputs/INDEX.md
+/.outputs/work/*/evidence/
+/.outputs/local/
+/.env.local
+# end sdlc-engine

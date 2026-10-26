@@ -1,0 +1,79 @@
+# Work the first runs deliver: the product and its scaffold are not decided by the specialization.
+schema: sdlc.project-decisions.v1
+topic: follow-ups
+decisions:
+  - id: scaffold
+    subject: follow-ups.scaffold
+    status: decided
+    value:
+      work: >-
+        Scaffold the file-transfer client in TypeScript with pnpm (the owner's choice; toolchain
+        sdlc/toolchain.node-pnpm): create package.json, pnpm-lock.yaml, tsconfig.json, the ESLint
+        and Prettier configurations and the Vitest setup, so the preset's tools (build, lint,
+        typecheck, format-check, unit-tests, audit) run green. The linter and formatter exclude
+        .claude/, .agent/, .outputs/ and .sdlc/. Until the scaffold lands, the sdlc/baseline gates
+        over those tools cannot hold.
+      open_questions:
+        - Desktop UI toolkit (e.g. Electron, Tauri), CLI, or both; target platforms and packaging/distribution.
+        - Runtime and framework within TypeScript (Node version, bundler, monorepo or single package).
+        - Protocol libraries for SFTP, S3, WebDAV and the other back-ends ("SFTP/S3/WebDAV, etc." in the objective).
+        - Where saved credentials live (OS keychain or otherwise) and how host keys and TLS are verified.
+        - How Cyberduck is studied as the model (behaviour reference only; its licence governs any reuse).
+    rationale: "Discovery found an empty repository; the owner chose TypeScript + pnpm, the rest of the product's stack is the scaffold's to decide."
+    provenance:
+      kind: asked
+      question: "Which language and package manager does the project use? The baseline's checks need a toolchain, and the repository has none yet."
+      answer: TypeScript + pnpm
+  - id: product-requirements
+    subject: follow-ups.product
+    status: decided
+    value:
+      work: >-
+        Turn the objective into work items (/sdlc-goal): "Build a new file-transfer client
+        (SFTP/S3/WebDAV, etc.) modeled on Cyberduck" — which protocols first, browsing, upload and
+        download, bookmarks, transfer queue, synchronisation.
+    rationale: "Product requirements are the work items' to decide, not the specialization's."
+    provenance:
+      kind: asked
+      question: What is the project's objective?
+      answer: Build a new file-transfer client (SFTP/S3/WebDAV, etc.) modeled on Cyberduck
+  - id: github-work-items
+    subject: follow-ups.integrations.work_items
+    status: decided
+    value:
+      work: >-
+        Work items on GitHub Issues for jgabriellima/cyberduck-recap. The github/cloud package
+        serves source control only (pull requests); no installed package serves GitHub Issues, so
+        work items stay local (specs in the repository) until a GitHub Issues integration is
+        added with /sdlc-evolve.
+    rationale: "The owner chose GitHub; the github/cloud package covers source control only."
+    provenance:
+      kind: asked
+      question: "Where does the work live: source control, work items and CI?"
+      answer: https://github.com/jgabriellima/cyberduck-recap.git
+  - id: github-actions-ci
+    subject: follow-ups.integrations.ci
+    status: decided
+    value:
+      work: >-
+        CI on GitHub Actions. The github/cloud package has no CI integration, so checks run
+        locally through the engine's gates; once the scaffold has a toolchain, add a GitHub
+        Actions workflow and a CI integration with /sdlc-evolve.
+    rationale: "The owner chose GitHub; the github/cloud package has no CI operations."
+    provenance:
+      kind: asked
+      question: "Where does the work live: source control, work items and CI?"
+      answer: https://github.com/jgabriellima/cyberduck-recap.git
+  - id: remote
+    subject: follow-ups.source_control.remote
+    status: decided
+    value:
+      work: >-
+        The repository has no remote yet: add origin https://github.com/jgabriellima/cyberduck-recap.git
+        before the first pull request. GITHUB_TOKEN (contents and pull-request write access to
+        that repository) is in the git-ignored .env.local, where the engine reads it.
+    rationale: "Discovery found no remote; the GitHub integration needs one and a token."
+    provenance:
+      kind: asked
+      question: "Where does the work live: source control, work items and CI?"
+      answer: https://github.com/jgabriellima/cyberduck-recap.git

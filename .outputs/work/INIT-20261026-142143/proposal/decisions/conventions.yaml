@@ -1,0 +1,29 @@
+# The Definition of Done areas sdlc/baseline does not cover, settled by the owner's interview
+# answers: they kept the baseline and added no convention of their own.
+schema: sdlc.project-decisions.v1
+topic: conventions
+decisions:
+  - id: architecture
+    subject: conventions.architecture
+    status: decided
+    value: none
+    provenance:
+      kind: asked
+      question: "Architecture: do you hold the code to a structure (layers, module boundaries, e.g. protocol back-ends kept apart from the UI)? Answer in your words, or keep the baseline (no rule of its own)."
+      answer: default (baseline)
+  - id: integration
+    subject: conventions.integration
+    status: decided
+    value: none
+    provenance:
+      kind: asked
+      question: "Integration: how changes land: anything beyond one pull request per change with checks green (commit format, release notes, changelog), or none?"
+      answer: default (baseline)
+  - id: review
+    subject: conventions.review
+    status: decided
+    value: none
+    provenance:
+      kind: asked
+      question: "Review: beyond the agent review panel and your approval at the gates, must a person review every pull request before merge, or anything else, or none?"
+      answer: default (baseline)

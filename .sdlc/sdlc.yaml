@@ -1,0 +1,137 @@
+# The project's manifest. The engine reads instance, agent_runtime, integrations, toolchains,
+# packages, autopilot, memories and context_budget; agents read the invariants.
+# Workflows, gates, roles and the policies the engine enforces are contracts of the protocol
+# (`sdlc-engine protocol`), never sections of this file. `/sdlc-init` specializes it.
+
+sdlc:
+  schema_version: "4.0"
+
+instance:
+  name: your-project
+  lanes:
+    product_paths:
+      - src/**
+      - test/**
+      - tests/**
+      - packages/**
+      - apps/**
+      - scripts/**
+      - assets/**
+      - README.md
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - tsconfig*.json
+      - eslint.config.*
+      - .prettierrc*
+      - .prettierignore
+      - vitest.config.*
+      - LICENSE
+    operator_paths:
+      - .sdlc/**
+      - .outputs/**
+      - docs/**
+  human_review:
+    enabled: true
+    keywords:
+      targeted:
+        - change
+        - replace
+        - typo
+        - fix
+        - add
+        - remove
+        - rename
+        - style
+        - small
+        - minor
+      complex:
+        - redesign
+        - rethink
+        - reconsider
+        - refactor
+        - new feature
+        - restructure
+        - different approach
+        - break into smaller parts
+        - doesn't match the design
+      vague:
+        - didn't like
+        - weird
+        - wrong
+        - improve
+        - adjust
+        - not good
+        - doesn't feel right
+      question:
+        - why
+        - why did
+        - why does
+        - what does
+        - what is
+        - what happens
+        - how does
+        - how is
+        - could you explain
+        - can you explain
+        - is this intentional
+        - does this handle
+        - should this
+    complex_diff_lines: 400
+    behavior:
+      reply_to_comments: true
+    anti_loop:
+      autopilot_max_rounds: 3
+
+agent_runtime:
+  active: claude
+
+integrations:
+  source_control:
+    {
+      provider: local,
+      integration: github/integration.github-com,
+      settings: { repository: jgabriellima/cyberduck-recap },
+      credentials: { token: env:GITHUB_TOKEN }
+    }
+  work_items: { provider: local }
+  ci: { provider: local }
+
+toolchains:
+  - sdlc/toolchain.node-pnpm
+
+memories:
+  location: .sdlc/memories/
+  files:
+    - id: architecture
+      path: architecture.md
+      max_tokens: 800
+      inject_modes:
+        - session_start
+        - hydrate
+    - id: business-rules
+      path: business-rules.md
+      max_tokens: 600
+      inject_modes:
+        - hydrate
+    - id: operational-context
+      path: operational-context.md
+      max_tokens: 500
+      inject_modes:
+        - session_start
+        - hydrate
+
+context_budget:
+  session_capsule_max_tokens: 1500
+
+invariants:
+  - Workflow node gates must pass before dispatch continues.
+  - AGENTS.md rules supersede agent priors when they conflict.
+  - Providers are integration contracts bound under integrations:; local is the
+    default.
+  - One PR per lane; main is protected.
+  - Approved specs execute end-to-end through merge.
+packages:
+  - sdlc/default@^2
+  - sdlc/baseline@^1
+  - github/cloud@^1

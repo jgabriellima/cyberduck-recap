@@ -1,0 +1,119 @@
+# Interview (core/workflow.specialize): what only the person decides about how the work is done
+# here. The product (protocols, UI, platforms, packaging, how Cyberduck is studied) is the work
+# items' to decide, not this interview's.
+schema: sdlc.project-decisions.v1
+topic: interview
+decisions:
+  - id: integrations
+    subject: integrations.where
+    status: decided
+    value: https://github.com/jgabriellima/cyberduck-recap.git
+    provenance:
+      kind: asked
+      question: "Where does the work live: source control, work items and CI?"
+      answer: https://github.com/jgabriellima/cyberduck-recap.git
+
+  - id: agent-policy
+    subject: agent-policy.dependencies-and-network
+    status: decided
+    value:
+      allow:
+        - dependency-install
+        - network-fetch
+      nodes:
+        - implement
+        - test
+    provenance:
+      kind: asked
+      question: Beyond the standard policy (installing dependencies and fetching from
+        the network ask you each time; secrets, protected branches and force
+        pushes are always denied), what may the agents run on their own?
+      answer: c
+
+  - id: conventions-architecture
+    subject: conventions.architecture
+    status: decided
+    value: baseline
+    provenance:
+      kind: asked
+      question: "Architecture: do you hold the code to a structure (layers, module
+        boundaries, e.g. protocol back-ends kept apart from the UI)? Answer in
+        your words, or keep the baseline (no rule of its own)."
+      answer: default (baseline)
+
+  - id: conventions-code
+    subject: conventions.code
+    status: decided
+    value: baseline
+    provenance:
+      kind: asked
+      question: "Code and comments: the baseline asks for lint, type checks and
+        formatting clean, and comments that say why. Anything to add (naming,
+        style guide, max complexity), or none?"
+      answer: default (baseline)
+
+  - id: conventions-testing
+    subject: conventions.testing
+    status: decided
+    value: baseline
+    provenance:
+      kind: asked
+      question: "Testing: the baseline asks that every acceptance criterion has a
+        passing test. Anything to add (coverage threshold, integration tests
+        against real SFTP/S3/WebDAV servers in containers), or none?"
+      answer: default (baseline)
+
+  - id: conventions-security
+    subject: conventions.security
+    status: decided
+    value: baseline
+    provenance:
+      kind: asked
+      question: "Security: the baseline asks for a dependency audit and no secrets in
+        source. Anything to add (credentials only in the OS keychain, host-key
+        verification never disabled, TLS never downgraded), or none?"
+      answer: default (baseline)
+
+  - id: conventions-integration
+    subject: conventions.integration
+    status: decided
+    value: baseline
+    provenance:
+      kind: asked
+      question: "Integration: how changes land: anything beyond one pull request per
+        change with checks green (commit format, release notes, changelog), or
+        none?"
+      answer: default (baseline)
+
+  - id: conventions-review
+    subject: conventions.review
+    status: decided
+    value: baseline
+    provenance:
+      kind: asked
+      question: "Review: beyond the agent review panel and your approval at the gates,
+        must a person review every pull request before merge, or anything else,
+        or none?"
+      answer: default (baseline)
+
+  # Added at the rework of propose, after verify refused the approved specialization: the
+  # baseline's tools need a stack, and the GitHub token needs a place the engine reads.
+  - id: stack
+    subject: toolchains.stack
+    status: decided
+    value: sdlc/toolchain.node-pnpm
+    rationale: "The preset for TypeScript on Node with pnpm provides the tools sdlc/default and sdlc/baseline require (build, lint, typecheck, format-check, unit-tests, audit)."
+    provenance:
+      kind: asked
+      question: "Which language and package manager does the project use? The baseline's checks need a toolchain, and the repository has none yet."
+      answer: TypeScript + pnpm
+
+  - id: github-token
+    subject: integrations.source_control.credentials.token
+    status: decided
+    value: env:GITHUB_TOKEN
+    rationale: "The engine reads env: credentials from the process environment and from the git-ignored .env.local at the repository root; doctor no longer reports the token missing while the shell does not export it."
+    provenance:
+      kind: asked
+      question: "Where does the GitHub token (GITHUB_TOKEN) for jgabriellima/cyberduck-recap live?"
+      answer: GITHUB_TOKEN placed in .env.local at the repository root (git-ignored)

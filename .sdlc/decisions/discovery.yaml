@@ -1,0 +1,27 @@
+# Discovery (core/action.discover): what the repository and the objective say, read by the engine.
+# Languages no installed preset covers, for research: none.
+schema: sdlc.project-decisions.v1
+topic: discovery
+decisions:
+  - id: maturity
+    subject: project.maturity
+    value:
+      level: empty
+      files: 1
+      sourceFiles: 0
+      commits: 0
+    provenance:
+      kind: extracted
+      evidence:
+        - command: git ls-files --cached --others --exclude-standard; git rev-list --count HEAD
+          output: 1 file(s), 0 source file(s), 0 commit(s)
+  - id: source-control
+    subject: integrations.source_control
+    value:
+      remote: none
+      branch: main
+    provenance:
+      kind: extracted
+      evidence:
+        - command: git remote get-url origin; git symbolic-ref --short HEAD
+          output: no remote; main

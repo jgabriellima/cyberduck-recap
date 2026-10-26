@@ -1,0 +1,22 @@
+apiVersion: sdlc/v1
+kind: Policy
+metadata:
+  id: cyberduck/policy.dependencies-and-network
+  version: 1.0.0
+  summary: Agents install dependencies and fetch from the network on their own while implementing and testing
+  description: >
+    The owner's answer to the interview (agent-policy.dependencies-and-network: c). Outside the
+    implement and test nodes the standard policy still asks.
+spec:
+  shell:
+    rules:
+      - id: dependency-install
+        nodes: [implement, test, verify.test]
+        command: '\b(npm|pnpm|yarn|bun)\s+(i|install|add|ci)\b|\b(pip|pipx)\s+install\b|\buv\s+(add|sync|pip\s+install)\b|\bcargo\s+(add|install|fetch)\b|\bgo\s+(get|mod\s+download)\b|\bplaywright\s+install\b'
+        decision: allow
+        reason: the owner lets agents install dependencies while implementing and testing
+      - id: network-fetch
+        nodes: [implement, test, verify.test]
+        command: '\b(curl|wget|git\s+clone)\b'
+        decision: allow
+        reason: the owner lets agents fetch from the network while implementing and testing

@@ -1,0 +1,10 @@
+# GitHub as the project's source control: pull requests on github.com, as data the engine's
+# integration executor runs. Bind it in sdlc.yaml with the project's repository:
+#   integrations:
+#     source_control: { integration: github/integration.github-com, settings: { repository: <owner>/<repo> } }
+id: github/cloud
+version: 1.0.0
+summary: GitHub (github.com) pull requests, as a provider contract
+requires:
+  packages: [{ id: sdlc/default, range: ^2.0.0 }]
+  integrations: [source_control]
