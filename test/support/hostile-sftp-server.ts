@@ -60,6 +60,8 @@ export interface HostileServer {
   readonly hostKey: KeyPair;
   readonly stats: HostileServerStats;
   readonly knownHostsLine: string;
+  /** TCP connections still open: an abandoned session that was never closed shows up here. */
+  liveConnections(): number;
   close(): Promise<void>;
 }
 
@@ -158,6 +160,7 @@ export async function startHostileServer(
     hostKey,
     stats,
     knownHostsLine: `[127.0.0.1]:${port} ${hostKey.publicKey}`,
+    liveConnections: () => sockets.size,
     close: async () => {
       restore();
       for (const socket of sockets) socket.destroy();
