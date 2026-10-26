@@ -46,6 +46,11 @@ export interface HostileServerOptions {
   readonly forgeHostKeySignature?: boolean;
   /** Scripts the SFTP subsystem; without it the server opens no SFTP channel. */
   readonly serve?: (sftp: HostileSftp) => void;
+  /**
+   * Refuses the session channel with this description: CHANNEL_OPEN_FAILURE carries server-chosen
+   * text that ssh2 copies into the client's error message.
+   */
+  readonly refuseSessionWith?: string;
 }
 
 export interface HostileServerStats {
@@ -94,6 +99,30 @@ function forgeSignatures(hostKey: KeyPair): () => void {
   };
 }
 
+type ChannelOpenFail = (remote: number, reason: number, desc?: string) => void;
+
+/**
+ * ssh2's own reject() sends no description, so the server's protocol writer is wrapped for this one
+ * reply: the description is the hostile text under test.
+ */
+function refuseWithText(
+  client: Connection,
+  reject: () => void,
+  description: string,
+): void {
+  const protocol = (
+    client as unknown as { _protocol: { channelOpenFail: ChannelOpenFail } }
+  )._protocol;
+  const original = protocol.channelOpenFail;
+  protocol.channelOpenFail = (remote, reason) =>
+    original.call(protocol, remote, reason, description);
+  try {
+    reject();
+  } finally {
+    protocol.channelOpenFail = original;
+  }
+}
+
 export async function startHostileServer(
   options: HostileServerOptions,
 ): Promise<HostileServer> {
@@ -125,7 +154,11 @@ export async function startHostileServer(
       });
       client.on('ready', () => {
         stats.sessions += 1;
-        client.on('session', (acceptSession) => {
+        client.on('session', (acceptSession, rejectSession) => {
+          if (options.refuseSessionWith !== undefined) {
+            refuseWithText(client, rejectSession, options.refuseSessionWith);
+            return;
+          }
           const session = acceptSession();
           session.on('sftp', (acceptSftp) => {
             const sftp = acceptSftp();
