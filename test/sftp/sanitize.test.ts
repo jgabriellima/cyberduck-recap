@@ -129,4 +129,25 @@ describe('sanitizeServerText', () => {
     expect(output).toHaveLength(256);
     expect(output).not.toContain('\u202e');
   });
+
+  it.each([
+    ['undefined', undefined, 'undefined'],
+    ['null', null, 'null'],
+    ['a number', 42, '42'],
+    ['an object', { toString: () => 'a\u202eb' }, 'a\\u202eb'],
+    [
+      'an object whose toString throws',
+      {
+        toString: () => {
+          throw new Error('no');
+        },
+      },
+      '',
+    ],
+  ])(
+    'a non-string %s at runtime is coerced and escaped, never thrown on',
+    (_label, value, expected) => {
+      expect(sanitizeServerText(value as unknown as string)).toBe(expected);
+    },
+  );
 });

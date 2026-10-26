@@ -18,13 +18,25 @@ function escapeCharacter(c: string): string {
     : `\\u${code.toString(16).padStart(4, '0')}`;
 }
 
+// The type says string, but ssh2 handlers pass whatever an error carries; a non-string must turn
+// into text, never into an exception escaping an event handler.
+function textOf(value: unknown): string {
+  if (typeof value === 'string') return value;
+  try {
+    return String(value);
+  } catch {
+    return '';
+  }
+}
+
 /**
  * Server-chosen text made safe to embed in an error message: C0/C1 controls, DEL, bidi format
  * characters and the line/paragraph separators are escaped, then the result is capped at 256
- * characters (cyberduck/standard.sanitised-server-text).
+ * characters (cyberduck/standard.sanitised-server-text). A non-string at runtime is coerced, never
+ * thrown on.
  */
 export function sanitizeServerText(text: string): string {
-  const escaped = text.replace(UNSAFE_CHARACTERS, escapeCharacter);
+  const escaped = textOf(text).replace(UNSAFE_CHARACTERS, escapeCharacter);
   return escaped.length > MAX_SERVER_TEXT
     ? escaped.slice(0, MAX_SERVER_TEXT)
     : escaped;
