@@ -123,4 +123,27 @@ describe('SFTP status mapping table (M-2)', () => {
     expect(cause.message).toBe('a\\u202eb\\u2029c\\u2069');
     expect(cause.message).toHaveLength(21);
   });
+
+  it('reads that throw give a safe cause, no status and a connection failure, never a throw', () => {
+    const fail = (): never => {
+      throw new Error('trap');
+    };
+    const proxy = new Proxy(new Error('x'), {
+      get: fail,
+      getPrototypeOf: fail,
+    });
+    const getters = new Error('placeholder');
+    Object.defineProperty(getters, 'message', { get: fail });
+    Object.defineProperty(getters, 'code', { get: fail });
+    Object.defineProperty(getters, 'level', { get: fail });
+
+    for (const error of [proxy, getters]) {
+      const cause = sanitizedCause(error);
+      expect(cause).toBeInstanceOf(Error);
+      expect(cause.message).toBe('unknown');
+      expect(Object.keys(cause)).toEqual([]);
+      expect(statusOf(error)).toBeUndefined();
+      expect(classifyConnectError(error)).toBe('CONNECTION_FAILED');
+    }
+  });
 });

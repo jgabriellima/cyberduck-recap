@@ -40,10 +40,21 @@ export class MalformedReplyError extends Error {
   }
 }
 
+// These reads run inside ssh2 event handlers and callbacks: a getter or Proxy trap that throws
+// there escapes as an uncaught exception instead of a RemoteFsError, so a throwing read counts
+// as an absent property.
+function readProperty(value: unknown, key: string): unknown {
+  if (typeof value !== 'object' || value === null) return undefined;
+  try {
+    return (value as Record<string, unknown>)[key];
+  } catch {
+    return undefined;
+  }
+}
+
 /** ssh2 marks a server status reply with a numeric `code`; anything else is a transport failure. */
 export function statusOf(error: unknown): number | undefined {
-  if (typeof error !== 'object' || error === null) return undefined;
-  const code = (error as { code?: unknown }).code;
+  const code = readProperty(error, 'code');
   return typeof code === 'number' ? code : undefined;
 }
 
@@ -169,10 +180,16 @@ export function toRemoteFsError(
  * can reach the client and its configuration (S-6).
  */
 export function sanitizedCause(error: unknown): Error {
-  const message =
-    error instanceof Error ? sanitizeServerText(error.message) : 'unknown';
+  // It builds the cause inside ssh2 handlers, so a throwing trap or getter must not escape.
+  let message: string;
+  try {
+    message =
+      error instanceof Error ? sanitizeServerText(error.message) : 'unknown';
+  } catch {
+    message = 'unknown';
+  }
   const cause = new Error(message);
-  const code = (error as { code?: unknown } | null)?.code;
+  const code = readProperty(error, 'code');
   if (typeof code === 'string' || typeof code === 'number') {
     Object.defineProperty(cause, 'code', { value: code, enumerable: true });
   }
@@ -189,7 +206,7 @@ export interface Ssh2ConnectError {
 export function classifyConnectError(
   error: Ssh2ConnectError,
 ): RemoteFsErrorCode {
-  return error.level === 'client-authentication'
+  return readProperty(error, 'level') === 'client-authentication'
     ? 'AUTH_FAILED'
     : 'CONNECTION_FAILED';
 }
