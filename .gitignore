@@ -8,3 +8,8 @@
 /.outputs/local/
 /.env.local
 # end sdlc-engine
+
+# build and test output
+/node_modules/
+/dist/
+/coverage/
