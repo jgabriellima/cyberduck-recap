@@ -54,7 +54,7 @@ describe('sanitizeServerText', () => {
     expect(sanitizeServerText('\u2029')).toHaveLength(6);
   });
 
-  it.each(['‧', ' ', '⁥', '⁪'])(
+  it.each(['\u2027', '\u202f', '\u2065', '\u206a'])(
     'leaves the code points next to each range unchanged (%#)',
     (input) => {
       const output = sanitizeServerText(input);
@@ -79,8 +79,8 @@ describe('sanitizeServerText', () => {
     ['\u007f', '\\x7f'],
     ['\u0080', '\\x80'],
     ['\u009f', '\\x9f'],
-    [' ', ' '],
-    [' ', ' '],
+    ['\u0020', '\u0020'],
+    ['\u00a0', '\u00a0'],
   ])(
     'keeps the C0, DEL and C1 escapes and their boundaries (%#)',
     (input, expected) => {
@@ -93,10 +93,10 @@ describe('sanitizeServerText', () => {
     'Directory not empty',
     'café naïve',
     'ファイルが見つかりません',
-    'שלום',
-    'مرحبا',
+    '\u05e9\u05dc\u05d5\u05dd',
+    '\u0645\u0631\u062d\u0628\u0627',
     '\u{1F4C1}',
-    '\u{1F469}‍\u{1F4BB}',
+    '\u{1F469}\u200d\u{1F4BB}',
   ])(
     'passes ordinary text, non-ASCII letters and emoji unchanged (%#)',
     (input) => {
