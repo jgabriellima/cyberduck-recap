@@ -6,19 +6,26 @@
  * path where server text reaches an error. This file holds no raw character of those ranges: every
  * one is written as a `\u` escape.
  */
+import { randomBytes } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it, onTestFinished } from 'vitest';
 import { RemoteFsError } from '../../src/index.js';
 import { mapStatus, sanitizedCause } from '../../src/sftp/error-map.js';
 import { sanitizeServerText } from '../../src/sftp/sanitize.js';
+import { CHUNK_SIZE, WINDOW } from '../../src/sftp/streams.js';
 import { newFs, sentinel, tempDir } from '../support/harness.js';
 import {
   STATUS,
   startHostileServer,
   type HostileSftp,
 } from '../support/hostile-sftp-server.js';
-import { streamOutcome } from '../support/remote-fs-assertions.js';
+import {
+  readAll,
+  sha256,
+  streamOutcome,
+  writeAll,
+} from '../support/remote-fs-assertions.js';
 
 const CAP = 256;
 
@@ -451,5 +458,70 @@ describe('ATK-34: server text in transport errors and entry names', () => {
       expect(text).not.toMatch(UNSAFE);
       expect(text).not.toContain('FAKE');
     }
+  });
+});
+
+describe('ATK-35: the documented chunk size and window hold on the wire', () => {
+  it('no READ or WRITE exceeds the documented limits, in-flight requests stay within WINDOW, and bytes are exact', async () => {
+    const content = randomBytes(1024 * 1024 + 4321);
+    const written = Buffer.alloc(content.length);
+    const readLengths: number[] = [];
+    const writeLengths: number[] = [];
+    let outstanding = 0;
+    let maxOutstanding = 0;
+    const FILE_HANDLE = Buffer.from([0, 0, 0, 1]);
+    const attrs = {
+      mode: 0o100644,
+      size: content.length,
+      uid: 0,
+      gid: 0,
+      atime: 0,
+      mtime: 0,
+    };
+    const { fs } = await hostilePair((sftp) => {
+      // Answers are held for one turn of the event loop, so requests pile up as far as the client lets them.
+      const later = (answer: () => void): void => {
+        outstanding += 1;
+        maxOutstanding = Math.max(maxOutstanding, outstanding);
+        setImmediate(() => {
+          outstanding -= 1;
+          answer();
+        });
+      };
+      sftp.on('OPEN', (id) => sftp.handle(id, FILE_HANDLE));
+      sftp.on('STAT', (id) => sftp.attrs(id, attrs));
+      sftp.on('FSTAT', (id) => sftp.attrs(id, attrs));
+      sftp.on('CLOSE', (id) => sftp.status(id, STATUS.OK, 'OK'));
+      sftp.on('READ', (id, _handle, offset, length) => {
+        readLengths.push(length);
+        later(() => {
+          if (offset >= content.length) sftp.status(id, STATUS.EOF, 'EOF');
+          else sftp.data(id, content.subarray(offset, offset + length));
+        });
+      });
+      sftp.on('WRITE', (id, _handle, offset, data) => {
+        writeLengths.push(data.length);
+        data.copy(written, offset);
+        later(() => sftp.status(id, STATUS.OK, 'OK'));
+      });
+    });
+
+    const downloaded = await readAll(fs.createReadStream('/f'));
+    const upload = fs.createWriteStream('/f');
+    const uploaded = streamOutcome(upload);
+    await writeAll(upload, content);
+    const outcome = await uploaded;
+
+    expect(sha256(downloaded)).toBe(sha256(content));
+    expect(outcome.error).toBeUndefined();
+    expect(sha256(written)).toBe(sha256(content));
+    // The doc comment: under 32 KiB, under ssh2's 34000 - 2048, at most 512 KiB in flight.
+    expect(CHUNK_SIZE).toBeLessThan(32 * 1024);
+    expect(CHUNK_SIZE).toBeLessThanOrEqual(34000 - 2048);
+    expect(CHUNK_SIZE * WINDOW).toBeLessThanOrEqual(512 * 1024);
+    expect(Math.max(...readLengths)).toBeLessThanOrEqual(CHUNK_SIZE);
+    expect(Math.max(...writeLengths)).toBeLessThanOrEqual(CHUNK_SIZE);
+    expect(maxOutstanding).toBeGreaterThan(1);
+    expect(maxOutstanding).toBeLessThanOrEqual(WINDOW);
   });
 });
