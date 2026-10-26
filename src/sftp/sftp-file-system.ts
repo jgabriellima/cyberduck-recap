@@ -18,6 +18,11 @@ import { createSftpReadStream, createSftpWriteStream } from './streams.js';
 
 type State = 'idle' | 'connecting' | 'connected';
 
+interface PendingAttempt {
+  readonly attempt: ConnectAttempt;
+  readonly done: Promise<void>;
+}
+
 /** What inspection and JSON show of an instance: never a credential (S-6). */
 interface PublicView {
   readonly host: string;
@@ -42,7 +47,7 @@ function requirePath(name: string, value: unknown): asserts value is string {
 export class SftpFileSystem implements RemoteFileSystem {
   readonly #options: ValidatedOptions;
   #session: Session | undefined;
-  #attempt: { attempt: ConnectAttempt; done: Promise<void> } | undefined;
+  #attempt: PendingAttempt | undefined;
 
   constructor(options: SftpFileSystemOptions) {
     this.#options = validateOptions(options);
@@ -58,32 +63,46 @@ export class SftpFileSystem implements RemoteFileSystem {
     // A second call while one is in progress shares its outcome instead of opening a session.
     if (this.#attempt !== undefined) return this.#attempt.done;
     const attempt = openSession(this.#options);
-    const done = attempt.session.then(
-      (session) => {
-        this.#attempt = undefined;
-        this.#session = session;
-        session.onLost(() => {
-          if (this.#session === session) this.#session = undefined;
-        });
-      },
-      (error: unknown) => {
-        this.#attempt = undefined;
-        throw error;
-      },
-    );
-    this.#attempt = { attempt, done };
-    return done;
+    const entry: PendingAttempt = {
+      attempt,
+      done: attempt.session.then(
+        async (session) => {
+          if (this.#attempt !== entry) {
+            // disconnect() abandoned this attempt after its handshake had already succeeded.
+            await session.disconnect();
+            throw new RemoteFsError(
+              'CONNECTION_FAILED',
+              `connection to ${this.#options.host}:${this.#options.port} was cancelled by disconnect()`,
+            );
+          }
+          this.#attempt = undefined;
+          this.#session = session;
+          session.onLost(() => {
+            if (this.#session === session) this.#session = undefined;
+          });
+        },
+        (error: unknown) => {
+          if (this.#attempt === entry) this.#attempt = undefined;
+          throw error;
+        },
+      ),
+    };
+    this.#attempt = entry;
+    return entry.done;
   }
 
   async disconnect(): Promise<void> {
+    // Detached synchronously, so a connect() made right after this call starts a new attempt
+    // instead of joining the one being cancelled, and its session is never closed by this call.
     const pending = this.#attempt;
-    if (pending !== undefined) {
-      pending.attempt.cancel();
-      await pending.done.catch(() => undefined);
-    }
     const session = this.#session;
+    this.#attempt = undefined;
     this.#session = undefined;
-    await session?.disconnect();
+    pending?.attempt.cancel();
+    await Promise.all([
+      pending?.done.catch(() => undefined),
+      session?.disconnect(),
+    ]);
   }
 
   #connected(operation: string, path: string): Session {
