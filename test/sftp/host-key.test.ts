@@ -63,6 +63,28 @@ describe('unknown host key (AC-14)', () => {
     },
   );
 
+  // The file already exists here, so "unchanged" is checked byte for byte rather than as "absent":
+  // a refusal must not append, rewrite or normalise what the person already trusts.
+  it.each(refusals)(
+    'with %s and an entry only for another port: HOST_KEY_UNKNOWN, zero auth attempts, known_hosts byte-for-byte unchanged',
+    async (_label, confirmHostKey) => {
+      const fixture = await useServer({ password: sentinel() });
+      const knownHostsPath = join(await tempDir(), 'known_hosts');
+      // No final newline: an append would have to add one, so any write shows up in the bytes.
+      const content = `# trusted elsewhere\n[127.0.0.1]:${fixture.port + 1} ${fixture.hostKey.publicKey}`;
+      await writeFile(knownHostsPath, content);
+      const fs = newFs(fixture, knownHostsPath, {
+        password: sentinel(),
+        confirmHostKey,
+      });
+
+      await expectRejects(fs.connect(), 'HOST_KEY_UNKNOWN');
+
+      expect(fixture.stats.authAttempts).toBe(0);
+      expect(await readFile(knownHostsPath)).toEqual(Buffer.from(content));
+    },
+  );
+
   it('an entry for another port of the same host does not make the key trusted', async () => {
     const fixture = await useServer({ password: sentinel() });
     const knownHostsPath = join(await tempDir(), 'known_hosts');

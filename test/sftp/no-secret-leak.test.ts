@@ -309,4 +309,66 @@ describe('no secret leaks (AC-22)', () => {
 
     for (const [label, error] of errors) expectNoSecrets(label, error);
   });
+
+  // The failures that carry an ssh2 error as `cause` from a live session (a lost upload, a list
+  // cut off mid-flight, a shared failed connect, streams torn down by disconnect) are the ones
+  // most likely to drag the client's configuration, and with it the credentials, into an error.
+  it('connection-loss and concurrency errors (AC-20, AC-24, AC-29)', async () => {
+    // The secret password is the wrong one here, and the session runs on the secret key and
+    // passphrase, so every sentinel is held by an instance whose errors are inspected.
+    const fixture = await useServer({
+      password: sentinel(),
+      authorizedKeys: [encryptedKey],
+    });
+    const knownHostsPath = await knownHostsFor(fixture);
+    const errors: [string, unknown][] = [];
+
+    const failing = newFs(fixture, knownHostsPath, { password });
+    const first = rejection(failing.connect());
+    const second = rejection(failing.connect());
+    errors.push(['concurrent AUTH_FAILED 1', await first]);
+    errors.push(['concurrent AUTH_FAILED 2', await second]);
+
+    const fs = newFs(fixture, knownHostsPath, {
+      privateKey: encryptedKey.privateKey,
+      passphrase,
+    });
+    await fs.connect();
+    fixture.dropAfterBytes(256 * 1024);
+    const upload = fs.createWriteStream('/lost.bin');
+    const uploadLost = streamError(upload);
+    upload.end(randomBytes(2 * 1024 * 1024));
+    errors.push(['upload CONNECTION_LOST', await uploadLost]);
+    expectInstanceClean('after loss', fs);
+    fixture.dropAfterBytes(Number.POSITIVE_INFINITY);
+
+    await fs.connect();
+    fixture.stall();
+    const before = fixture.stats.requests;
+    const listing = rejection(fs.list('/'));
+    await fixture.waitUntil(() => fixture.stats.requests > before);
+    fixture.dropAll();
+    errors.push(['list CONNECTION_LOST', await listing]);
+    fixture.resume();
+
+    await fs.connect();
+    await writeFile(fixture.local('/big'), randomBytes(2 * 1024 * 1024));
+    const download = fs.createReadStream('/big');
+    await new Promise((resolve) => download.once('data', resolve));
+    download.pause();
+    const downloadError = new Promise((resolve) =>
+      download.on('error', resolve),
+    );
+    await fs.disconnect();
+    errors.push(['download NOT_CONNECTED on disconnect', await downloadError]);
+
+    expect(errors.map(([, error]) => (error as RemoteFsError).code)).toEqual([
+      'AUTH_FAILED',
+      'AUTH_FAILED',
+      'CONNECTION_LOST',
+      'CONNECTION_LOST',
+      'NOT_CONNECTED',
+    ]);
+    for (const [label, error] of errors) expectNoSecrets(label, error);
+  });
 });
