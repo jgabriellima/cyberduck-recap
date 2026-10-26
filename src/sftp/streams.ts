@@ -94,7 +94,10 @@ class SftpReadStream extends Readable {
       return;
     }
     this.#untrack = session.track({
-      abort: (code) => abortStream(this, this.#context, code),
+      // destroy(err) emits on the next tick, so a listener the caller attaches in the same tick as
+      // disconnect(), or an end() callback, still receives the error.
+      abort: (code) =>
+        this.destroy(operationError(code, this.#context, reasonFor(code))),
     });
     session
       .request<Buffer>((sftp, done) =>
@@ -287,7 +290,10 @@ class SftpWriteStream extends Writable {
       return;
     }
     this.#untrack = session.track({
-      abort: (code) => abortStream(this, this.#context, code),
+      // destroy(err) emits on the next tick, so a listener the caller attaches in the same tick as
+      // disconnect(), or an end() callback, still receives the error.
+      abort: (code) =>
+        this.destroy(operationError(code, this.#context, reasonFor(code))),
     });
     session
       .request<Buffer>((sftp, done) =>
@@ -400,23 +406,12 @@ class SftpWriteStream extends Writable {
     closeQuietly(this.#session, this.#handle);
     this.#handle = undefined;
     callback(error);
+    // Node settles end() callbacks only once no _write is in progress, so a chunk still waiting
+    // for window room is released here; otherwise `end(data, cb)` would never hear of the error.
+    const pendingWrite = this.#writeCallback;
+    this.#writeCallback = undefined;
+    pendingWrite?.(error);
   }
-}
-
-/**
- * Teardown fails an open stream with a typed error, but an abandoned stream nobody listens to is
- * only closed: emitting `error` without a listener would crash the caller's process.
- */
-function abortStream(
-  stream: Readable | Writable,
-  context: OperationContext,
-  code: 'CONNECTION_LOST' | 'NOT_CONNECTED',
-): void {
-  if (stream.listenerCount('error') === 0) {
-    stream.destroy();
-    return;
-  }
-  stream.destroy(operationError(code, context, reasonFor(code)));
 }
 
 function malformedOpen(context: OperationContext): RemoteFsError {

@@ -128,14 +128,13 @@ describe('replies that lack what the request needs', () => {
   });
 });
 
-describe('teardown of abandoned streams', () => {
-  it('disconnect() closes a stream nobody listens to without an unhandled error', async () => {
+describe('teardown of open streams', () => {
+  it('a read stream whose error listener is attached right after disconnect() still gets NOT_CONNECTED', async () => {
     const transport = new FakeTransport();
     transport.sftp.responders['open'] = () => ({ value: Buffer.from([1]) });
     transport.sftp.responders['close'] = () => ({});
     const session = new Session(transport);
     const stream = createSftpReadStream(session, '/f');
-    // Wait for the open, then drop every listener: the caller abandoned the stream.
     await new Promise<void>((resolve) => {
       const check = (): void => {
         if (transport.sftp.pending.some((r) => r.kind === 'read')) resolve();
@@ -144,11 +143,36 @@ describe('teardown of abandoned streams', () => {
       stream.on('readable', () => undefined);
       check();
     });
-    stream.removeAllListeners();
+
+    const disconnecting = session.disconnect();
+    const errored = new Promise((resolve) => stream.on('error', resolve));
+    await disconnecting;
+
+    expect(await errored).toMatchObject({ code: 'NOT_CONNECTED', path: '/f' });
+  });
+
+  it('a write stream ended with a callback gets NOT_CONNECTED in the callback', async () => {
+    const transport = new FakeTransport();
+    transport.sftp.responders['open'] = () => ({ value: Buffer.from([1]) });
+    const session = new Session(transport);
+    const stream = createSftpWriteStream(session, '/f');
+    stream.on('error', () => undefined);
+    const ended = new Promise((resolve) =>
+      stream.end(Buffer.alloc(40 * 32 * 1024), (error?: Error | null) =>
+        resolve(error),
+      ),
+    );
+    await new Promise<void>((resolve) => {
+      const check = (): void => {
+        if (transport.sftp.pending.some((r) => r.kind === 'write')) resolve();
+        else setImmediate(check);
+      };
+      check();
+    });
 
     await session.disconnect();
 
-    expect(stream.destroyed).toBe(true);
+    expect(await ended).toMatchObject({ code: 'NOT_CONNECTED', path: '/f' });
   });
 
   it('a listened-to stream still receives NOT_CONNECTED on disconnect()', async () => {
