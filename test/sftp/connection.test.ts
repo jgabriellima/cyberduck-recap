@@ -132,6 +132,34 @@ describe('connection lost (AC-20, AC-24)', () => {
 
     await expectRejects(fs.mkdir('/x'), 'NOT_CONNECTED');
   });
+
+  // A caller that awaits an upload through end()'s callback must hear of the loss there too:
+  // otherwise it waits forever for a file that will never be complete.
+  it('AC-24: an upload awaited through end(data, callback) gets CONNECTION_LOST in the callback and never finishes', async () => {
+    const { fixture, fs } = await connectedPair();
+    fixture.dropAfterBytes(ONE_MIB);
+    const stream = fs.createWriteStream('/upload.bin');
+    let finished = false;
+    stream.on('finish', () => {
+      finished = true;
+    });
+    const emitted = new Promise<unknown>((resolve) =>
+      stream.on('error', resolve),
+    );
+
+    const ended = await new Promise<unknown>((resolve) => {
+      stream.end(randomBytes(FIVE_MIB), (error?: Error | null) =>
+        resolve(error),
+      );
+    });
+
+    expectRemoteFsError(ended, 'CONNECTION_LOST', { path: '/upload.bin' });
+    expectRemoteFsError(await emitted, 'CONNECTION_LOST', {
+      path: '/upload.bin',
+    });
+    expect(finished).toBe(false);
+    await expectRejects(fs.stat('/'), 'NOT_CONNECTED');
+  });
 });
 
 describe('lifecycle (AC-21)', () => {
