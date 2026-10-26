@@ -1,0 +1,9 @@
+# Engine-generated runtime, run records and the generated CLAUDE.md are not project source.
+.claude/
+.agent/
+.outputs/
+.sdlc/
+CLAUDE.md
+pnpm-lock.yaml
+dist/
+coverage/
