@@ -63,3 +63,15 @@ decisions:
       kind: asked
       question: "Where does the work live: source control, work items and CI?"
       answer: https://github.com/jgabriellima/cyberduck-recap.git
+  - id: sanitise-format-characters
+    subject: follow-ups.security.sanitise-format-characters
+    status: decided
+    value:
+      work: >-
+        Bring sanitizeServerText (src/sftp/sanitize.ts) in line with cyberduck/standard.sanitised-server-text: it escapes C0/C1 controls and DEL (/[\u0000-\u001f\u007f-\u009f]/) but not the bidi overrides U+202A-U+202E, U+2066-U+2069 or the separators U+2028/U+2029. Add a test for each range. A bug work item, delivered with /sdlc-deliver.
+    rationale: "The standard binds every change from its approval; the code FEATURE-1 left does not meet it yet, as FEATURE-1's code review found."
+    provenance:
+      kind: extracted
+      evidence:
+        - command: grep -n 'CONTROL_CHARACTERS =' src/sftp/sanitize.ts
+          output: "5:const CONTROL_CHARACTERS = /[\\u0000-\\u001f\\u007f-\\u009f]/g;"

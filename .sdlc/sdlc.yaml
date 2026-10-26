@@ -99,6 +99,7 @@ integrations:
 
 toolchains:
   - sdlc/toolchain.node-pnpm
+  - cyberduck/toolchain.project
 
 memories:
   location: .sdlc/memories/

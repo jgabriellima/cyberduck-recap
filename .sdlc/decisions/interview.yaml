@@ -1,9 +1,38 @@
 # Interview (core/workflow.specialize): what only the person decides about how the work is done
 # here. The product (protocols, UI, platforms, packaging, how Cyberduck is studied) is the work
 # items' to decide, not this interview's.
+# RULE-20261026-190823: conventions.architecture, .integration and .review are recorded once, in
+# conventions.yaml (with the questions asked here), so the subject is not decided twice.
 schema: sdlc.project-decisions.v1
 topic: interview
 decisions:
+  
+  - id: conventions-architecture
+    subject: conventions.architecture
+    status: decided
+    value: baseline
+    provenance:
+      kind: asked
+      question: "Architecture: do you hold the code to a structure (layers, module boundaries, e.g. protocol back-ends kept apart from the UI)? Answer in your words, or keep the baseline (no rule of its own)."
+      answer: default (baseline)
+
+  - id: conventions-integration
+    subject: conventions.integration
+    status: decided
+    value: baseline
+    provenance:
+      kind: asked
+      question: "Integration: how changes land: anything beyond one pull request per change with checks green (commit format, release notes, changelog), or none?"
+      answer: default (baseline)
+
+  - id: conventions-review
+    subject: conventions.review
+    status: decided
+    value: baseline
+    provenance:
+      kind: asked
+      question: "Review: beyond the agent review panel and your approval at the gates, must a person review every pull request before merge, or anything else, or none?"
+      answer: default (baseline)
   - id: integrations
     subject: integrations.where
     status: decided
@@ -27,15 +56,6 @@ decisions:
       kind: asked
       question: Beyond the standard policy (installing dependencies and fetching from the network ask you each time; secrets, protected branches and force pushes are always denied), what may the agents run on their own?
       answer: c
-
-  - id: conventions-architecture
-    subject: conventions.architecture
-    status: decided
-    value: baseline
-    provenance:
-      kind: asked
-      question: "Architecture: do you hold the code to a structure (layers, module boundaries, e.g. protocol back-ends kept apart from the UI)? Answer in your words, or keep the baseline (no rule of its own)."
-      answer: default (baseline)
 
   - id: conventions-code
     subject: conventions.code
@@ -62,24 +82,6 @@ decisions:
     provenance:
       kind: asked
       question: "Security: the baseline asks for a dependency audit and no secrets in source. Anything to add (credentials only in the OS keychain, host-key verification never disabled, TLS never downgraded), or none?"
-      answer: default (baseline)
-
-  - id: conventions-integration
-    subject: conventions.integration
-    status: decided
-    value: baseline
-    provenance:
-      kind: asked
-      question: "Integration: how changes land: anything beyond one pull request per change with checks green (commit format, release notes, changelog), or none?"
-      answer: default (baseline)
-
-  - id: conventions-review
-    subject: conventions.review
-    status: decided
-    value: baseline
-    provenance:
-      kind: asked
-      question: "Review: beyond the agent review panel and your approval at the gates, must a person review every pull request before merge, or anything else, or none?"
       answer: default (baseline)
 
   # Added at the rework of propose, after verify refused the approved specialization: the

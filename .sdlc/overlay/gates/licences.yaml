@@ -1,0 +1,19 @@
+apiVersion: sdlc/v1
+kind: GateContract
+metadata:
+  id: cyberduck/gate.licences
+  version: 1.0.0
+  summary: Every production dependency has a licence on the permissive allow-list
+  title: Production licences allowed
+spec:
+  evaluator: check
+  check: { tool: "toolchain:licences" }
+  criteria: >
+    test/licenses.test.ts passes: `pnpm licenses list --prod` finds no direct or transitive
+    production dependency whose licence is off the allow-list (MIT, ISC, BSD-2-Clause,
+    BSD-3-Clause, 0BSD, Apache-2.0, Unlicense, CC0-1.0, BlueOak-1.0.0).
+  rules:
+    - id: allowed
+      expr: output.exitCode == 0
+      message: "a production dependency has a licence off the allow-list, or the licence test is missing (exit {{ output.exitCode }}): {{ size(output.stdout) > 0 ? output.stdout : output.stderr }}"
+      category: security

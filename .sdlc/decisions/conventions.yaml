@@ -1,16 +1,22 @@
-# The Definition of Done areas sdlc/baseline does not cover, settled by the owner's interview
-# answers: they kept the baseline and added no convention of their own.
+# The Definition of Done areas sdlc/baseline does not cover. Integration and review stay settled
+# as none by the owner's interview; architecture now has the standard FEATURE-1 proposed
+# (RULE-20261026-190823), so it is no longer none.
 schema: sdlc.project-decisions.v1
 topic: conventions
 decisions:
   - id: architecture
     subject: conventions.architecture
     status: decided
-    value: none
+    value: cyberduck/standard.protocol-boundaries
+    rationale: >-
+      FEATURE-1's ticket keeps the CLI, queue, sync and UI independent of any protocol, and its boundary tests (test/fs/boundary.test.ts, test/boundary/ssh2-imports.test.ts) enforce it.
     provenance:
-      kind: asked
-      question: "Architecture: do you hold the code to a structure (layers, module boundaries, e.g. protocol back-ends kept apart from the UI)? Answer in your words, or keep the baseline (no rule of its own)."
-      answer: default (baseline)
+      kind: extracted
+      evidence:
+        - command: grep -n 'must not depend on a specific protocol' .outputs/work/FEATURE-1/spec.md
+          output: "31:> operations, and the CLI, queue, sync and UI must not depend on a specific protocol."
+        - command: pnpm exec vitest run test/fs/boundary.test.ts test/boundary/ssh2-imports.test.ts
+          output: "Test Files 2 passed (2); Tests 5 passed (5)"
   - id: integration
     subject: conventions.integration
     status: decided

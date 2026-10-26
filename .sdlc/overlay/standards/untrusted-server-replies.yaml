@@ -1,0 +1,21 @@
+apiVersion: sdlc/v1
+kind: Standard
+metadata:
+  id: cyberduck/standard.untrusted-server-replies
+  version: 1.0.0
+  summary: A remote server's reply is untrusted input
+  description: >
+    From FEATURE-1: sdlc/gate.attacks-refuted sent the work back 2 times; hotspots malformed server
+    replies, stream teardown and session lifecycle; attacks ATK-11, ATK-20, ATK-21, ATK-24. The
+    existing hostile-server tests (test/sftp/hostile-server.test.ts,
+    test/sftp/malformed-replies.test.ts, test/adversarial/hostile-sftp-replies.test.ts,
+    test/adversarial/stream-integrity.test.ts) show the form. The tests run under
+    sdlc/gate.tests-pass; whether every reply a change reads is validated and has such a test is
+    the review's judgement, so no gate of its own.
+spec:
+  category: security
+  statement: >-
+    Every reply from a remote server is untrusted input: its shape is validated, a malformed or
+    hostile reply maps to a typed error (never a crash, hang or leaked stream), and the back-end has
+    a hostile-server test for it.
+  applies_to: { kinds: [feature, bug, refinement, incident] }
