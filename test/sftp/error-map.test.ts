@@ -1,0 +1,104 @@
+import { describe, expect, it } from 'vitest';
+import { RemoteFsError } from '../../src/index.js';
+import {
+  SFTP_STATUS,
+  SftpStatusError,
+  classifyConnectError,
+  mapStatus,
+  sanitizedCause,
+  statusOf,
+  toRemoteFsError,
+} from '../../src/sftp/error-map.js';
+
+const context = { operation: 'stat', path: '/p' };
+
+describe('SFTP status mapping table (M-2)', () => {
+  it.each([
+    [SFTP_STATUS.NO_SUCH_FILE, 'NOT_FOUND'],
+    [SFTP_STATUS.PERMISSION_DENIED, 'PERMISSION_DENIED'],
+    [SFTP_STATUS.FAILURE, 'OPERATION_FAILED'],
+    [SFTP_STATUS.FILE_ALREADY_EXISTS, 'ALREADY_EXISTS'],
+    [SFTP_STATUS.NO_CONNECTION, 'CONNECTION_LOST'],
+    [SFTP_STATUS.CONNECTION_LOST, 'CONNECTION_LOST'],
+    [SFTP_STATUS.BAD_MESSAGE, 'OPERATION_FAILED'],
+    [SFTP_STATUS.OP_UNSUPPORTED, 'OPERATION_FAILED'],
+    [99, 'OPERATION_FAILED'],
+  ])('status %i maps to %s with the path', (status, code) => {
+    const error = mapStatus(status, 'text', context);
+
+    expect(error).toBeInstanceOf(RemoteFsError);
+    expect(error.code).toBe(code);
+    expect(error.path).toBe('/p');
+    expect(error.message).toContain('/p');
+  });
+
+  it('OPERATION_FAILED carries the sanitised server text', () => {
+    const error = mapStatus(
+      SFTP_STATUS.FAILURE,
+      'Directory not empty\u001b',
+      context,
+    );
+    expect(error.message).toContain('Directory not empty\\x1b');
+  });
+
+  it('a status without text names the status', () => {
+    expect(mapStatus(SFTP_STATUS.FAILURE, '', context).message).toContain(
+      'status 4',
+    );
+  });
+
+  it('rename errors carry path = from and targetPath = to', () => {
+    const error = mapStatus(SFTP_STATUS.PERMISSION_DENIED, '', {
+      operation: 'rename',
+      path: '/from',
+      targetPath: '/to',
+    });
+    expect(error).toMatchObject({ path: '/from', targetPath: '/to' });
+  });
+
+  it('toRemoteFsError adds the paths to session errors and maps status errors', () => {
+    const lost = toRemoteFsError(
+      new RemoteFsError('CONNECTION_LOST', 'lost'),
+      context,
+    );
+    expect(lost).toMatchObject({ code: 'CONNECTION_LOST', path: '/p' });
+    expect(toRemoteFsError(new SftpStatusError(2, ''), context).code).toBe(
+      'NOT_FOUND',
+    );
+    expect(toRemoteFsError(new Error('?'), context).code).toBe(
+      'OPERATION_FAILED',
+    );
+  });
+
+  it('statusOf reads only numeric codes', () => {
+    expect(statusOf(Object.assign(new Error(), { code: 3 }))).toBe(3);
+    expect(
+      statusOf(Object.assign(new Error(), { code: 'ECONNRESET' })),
+    ).toBeUndefined();
+    expect(statusOf(null)).toBeUndefined();
+  });
+
+  it('connect-phase errors: client-authentication is AUTH_FAILED, the rest CONNECTION_FAILED', () => {
+    expect(classifyConnectError({ level: 'client-authentication' })).toBe(
+      'AUTH_FAILED',
+    );
+    expect(classifyConnectError({ level: 'client-socket' })).toBe(
+      'CONNECTION_FAILED',
+    );
+    expect(classifyConnectError({ level: 'handshake' })).toBe(
+      'CONNECTION_FAILED',
+    );
+  });
+
+  it('sanitizedCause keeps only a message and a code', () => {
+    const original = Object.assign(new Error('refused\n'), {
+      code: 'ECONNREFUSED',
+      config: { secret: 'x' },
+    });
+    const cause = sanitizedCause(original);
+
+    expect(cause).not.toBe(original);
+    expect(cause.message).toBe('refused\\x0a');
+    expect(Object.keys(cause)).toEqual(['code']);
+  });
+});
