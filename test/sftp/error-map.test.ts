@@ -41,6 +41,20 @@ describe('SFTP status mapping table (M-2)', () => {
     expect(error.message).toContain('Directory not empty\\x1b');
   });
 
+  it('OPERATION_FAILED escapes bidi and separator characters in the server text', () => {
+    const error = mapStatus(
+      SFTP_STATUS.FAILURE,
+      'x\u202ey\u2028z\u2066',
+      context,
+    );
+
+    expect(error.code).toBe('OPERATION_FAILED');
+    expect(error.message).toContain('x\\u202ey\\u2028z\\u2066');
+    expect(error.message).not.toMatch(
+      /[\u2028\u2029\u202a-\u202e\u2066-\u2069]/u,
+    );
+  });
+
   it('a status without text names the status', () => {
     expect(mapStatus(SFTP_STATUS.FAILURE, '', context).message).toContain(
       'status 4',
@@ -100,5 +114,13 @@ describe('SFTP status mapping table (M-2)', () => {
     expect(cause).not.toBe(original);
     expect(cause.message).toBe('refused\\x0a');
     expect(Object.keys(cause)).toEqual(['code']);
+  });
+
+  it('sanitizedCause escapes bidi and separator characters', () => {
+    const cause = sanitizedCause(new Error('a\u202eb\u2029c\u2069'));
+
+    expect(cause).toBeInstanceOf(Error);
+    expect(cause.message).toBe('a\\u202eb\\u2029c\\u2069');
+    expect(cause.message).toHaveLength(21);
   });
 });
