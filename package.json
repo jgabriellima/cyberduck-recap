@@ -5,6 +5,9 @@
   "description": "A file-transfer client modeled on Cyberduck's behaviour",
   "license": "UNLICENSED",
   "type": "module",
+  "bin": {
+    "cyberduck-recap": "dist/bin.js"
+  },
   "engines": {
     "node": ">=22"
   },
