@@ -1,0 +1,31 @@
+apiVersion: sdlc/v1
+kind: Standard
+metadata:
+  id: cyberduck/standard.comment-width
+  version: 1.0.0
+  summary: Comments wrap at 100 columns
+  description: >
+    From BUG-2's learn node (category comments, owner approved). BUG-2's review found a
+    121-character line in the toRemoteFsError doc comment (src/sftp/error-map.ts:201); two review
+    personas reported it. Insight topics on src/sftp/**: "comment line length", "comment line
+    wrapping". The person's words: "Comments wrap at 100 columns, the formatter's line width; a
+    lint rule checks it, because the formatter does not wrap comments."
+    Width: .prettierrc.json sets no printWidth, so Prettier 3.9.10 formats code at its default of
+    80 columns, not 100. The comments in the code already keep 100: of the comment lines in src/
+    and test/, 347 are over 80 columns and 10 are over 100 (ESLint max-len, comments 100, code
+    unlimited). The standard keeps the person's 100 columns; whether Prettier's printWidth becomes
+    100 is a question of the follow-up follow-ups.code.comment-width-lint.
+    Scope: the standard binds every change from its approval, on the comment lines that change
+    adds or edits. The 10 lines over 100 on main at approval are the follow-up; until it lands,
+    the review does not fail an unrelated change for them.
+    Enforcement: today the review judges it, with no gate. eslint.config.js has no max-len rule,
+    and eslint-config-prettier turns max-len off, so baseline/gate.lint does not check comment
+    width yet. The follow-up follow-ups.code.comment-width-lint adds the rule after the prettier
+    entry and wraps the 10 lines. Then baseline/gate.lint at implement checks the standard, and a
+    later rule or evolve run adds enforced_by { gate: baseline/gate.lint, at: implement } here.
+spec:
+  category: comments
+  statement: >-
+    Comments wrap at 100 columns; a lint rule checks it, because the formatter does not wrap
+    comments.
+  applies_to: { kinds: [feature, bug, refinement, incident, chore] }
