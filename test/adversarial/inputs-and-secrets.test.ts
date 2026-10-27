@@ -210,6 +210,8 @@ describe('ATK-18: secrets hunted in streams, entries and errors of a key-authent
 });
 
 describe('ATK-19: a flood of concurrent operations on one session', () => {
+  // The operation count is the attack; the time limit only catches a hang. It stays far above the
+  // honest cost, because a loaded host (load 50 on 8 CPUs) needed more than the 5 s default.
   it('500 concurrent stats, lists and small reads all complete correctly', async () => {
     const { fixture, fs } = await connectedPair();
     for (let i = 0; i < 20; i += 1) {
@@ -235,5 +237,5 @@ describe('ATK-19: a flood of concurrent operations on one session', () => {
 
     expect(results.every(Boolean)).toBe(true);
     expect(fixture.stats.sessions).toBe(1);
-  });
+  }, 60_000);
 });

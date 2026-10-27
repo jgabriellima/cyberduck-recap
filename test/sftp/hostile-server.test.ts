@@ -67,6 +67,30 @@ describe('server status text (G-4)', () => {
     expect(error.message.length).toBeLessThan(256 + 100);
   });
 
+  it('escapes bidi and separator characters in a hostile status message', async () => {
+    const { fixture, fs } = await connectedPair();
+    await mkdir(fixture.local('/full'));
+    await writeFile(fixture.local('/full/a'), 'x');
+    fixture.hostileStatusText(
+      'evil\u202etxt.exe \u2066host\u2069\u2028FAKE LOG LINE\u2029end',
+    );
+
+    const error = await expectRejects(fs.remove('/full'), 'OPERATION_FAILED');
+
+    for (const escape of [
+      '\\u202e',
+      '\\u2066',
+      '\\u2069',
+      '\\u2028',
+      '\\u2029',
+    ]) {
+      expect(error.message).toContain(escape);
+    }
+    expect(error.message).not.toMatch(
+      /[\u2028\u2029\u202a-\u202e\u2066-\u2069]/u,
+    );
+  });
+
   it('sanitizeServerText keeps plain text and caps the length at 256', () => {
     expect(sanitizeServerText('Failure')).toBe('Failure');
     expect(sanitizeServerText('\u007f')).toBe('\\x7f');

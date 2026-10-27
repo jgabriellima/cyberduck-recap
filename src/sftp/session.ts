@@ -1,5 +1,11 @@
 import { RemoteFsError } from '../fs/errors.js';
-import { MalformedReplyError, SftpStatusError, statusOf } from './error-map.js';
+import {
+  isMalformedReply,
+  MalformedReplyError,
+  messageOf,
+  SftpStatusError,
+  statusOf,
+} from './error-map.js';
 
 export type SftpCallback<T> = (
   error: Error | null | undefined,
@@ -133,7 +139,8 @@ export class Session {
   }
 
   /**
-   * Runs one SFTP request. Rejects with `SftpStatusError` for a server status, with a
+   * Runs one SFTP request. Rejects with `SftpStatusError` for a server status, with a fresh
+   * `MalformedReplyError` (our own message) for a reply that lacks its payload, with a
    * `RemoteFsError` (CONNECTION_LOST or NOT_CONNECTED, without a path) when the session ends.
    */
   request<T>(
@@ -156,8 +163,11 @@ export class Session {
           resolve(value as T);
           return;
         }
-        if (error instanceof MalformedReplyError) {
-          reject(error);
+        // The error comes from ssh2 or a hostile server: every read of it is guarded, because a
+        // throw here escapes into ssh2 after `settled` is set and the request never settles.
+        if (isMalformedReply(error)) {
+          // `instanceof` passes forgeries and Proxies: callers get our own copy, never the object.
+          reject(MalformedReplyError.copyOf(error));
           return;
         }
         const status = statusOf(error);
@@ -168,7 +178,7 @@ export class Session {
           this.#lose();
           return;
         }
-        reject(new SftpStatusError(status, error.message));
+        reject(new SftpStatusError(status, messageOf(error)));
       };
       try {
         start(this.#transport.sftp, done);

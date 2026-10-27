@@ -93,11 +93,15 @@ class SftpReadStream extends Readable {
       callback(notConnected(this.#context));
       return;
     }
+    const open = settleOnce(callback);
     this.#untrack = session.track({
-      // destroy(err) emits on the next tick, so a listener the caller attaches in the same tick as
+      // Both paths emit on the next tick, so a listener the caller attaches in the same tick as
       // disconnect(), or an end() callback, still receives the error.
-      abort: (code) =>
-        this.destroy(operationError(code, this.#context, reasonFor(code))),
+      abort: (code) => {
+        const error = operationError(code, this.#context, reasonFor(code));
+        if (open.pending) open.settle(error);
+        else this.destroy(error);
+      },
     });
     session
       .request<Buffer>((sftp, done) =>
@@ -105,15 +109,23 @@ class SftpReadStream extends Readable {
       )
       .then(
         (handle) => {
+          if (!open.pending) {
+            // The session ended first; a handle that still arrived is not left open on the server.
+            if (Buffer.isBuffer(handle)) closeQuietly(session, handle);
+            return;
+          }
           if (!Buffer.isBuffer(handle)) {
-            callback(malformedOpen(this.#context));
+            open.settle(malformedOpen(this.#context));
             return;
           }
           this.#handle = handle;
-          callback();
+          open.settle();
         },
-        async (error: unknown) =>
-          callback(await explainFailure(session, error, this.#context)),
+        async (error: unknown) => {
+          if (!open.pending) return;
+          const mapped = await explainFailure(session, error, this.#context);
+          open.settle(mapped);
+        },
       );
   }
 
@@ -289,11 +301,15 @@ class SftpWriteStream extends Writable {
       callback(notConnected(this.#context));
       return;
     }
+    const open = settleOnce(callback);
     this.#untrack = session.track({
-      // destroy(err) emits on the next tick, so a listener the caller attaches in the same tick as
+      // Both paths emit on the next tick, so a listener the caller attaches in the same tick as
       // disconnect(), or an end() callback, still receives the error.
-      abort: (code) =>
-        this.destroy(operationError(code, this.#context, reasonFor(code))),
+      abort: (code) => {
+        const error = operationError(code, this.#context, reasonFor(code));
+        if (open.pending) open.settle(error);
+        else this.destroy(error);
+      },
     });
     session
       .request<Buffer>((sftp, done) =>
@@ -301,15 +317,23 @@ class SftpWriteStream extends Writable {
       )
       .then(
         (handle) => {
+          if (!open.pending) {
+            // The session ended first; a handle that still arrived is not left open on the server.
+            if (Buffer.isBuffer(handle)) closeQuietly(session, handle);
+            return;
+          }
           if (!Buffer.isBuffer(handle)) {
-            callback(malformedOpen(this.#context));
+            open.settle(malformedOpen(this.#context));
             return;
           }
           this.#handle = handle;
-          callback();
+          open.settle();
         },
-        async (error: unknown) =>
-          callback(await explainFailure(session, error, this.#context)),
+        async (error: unknown) => {
+          if (!open.pending) return;
+          const mapped = await explainFailure(session, error, this.#context);
+          open.settle(mapped);
+        },
       );
   }
 
@@ -412,6 +436,28 @@ class SftpWriteStream extends Writable {
     this.#writeCallback = undefined;
     pendingWrite?.(error);
   }
+}
+
+/**
+ * Node joins an error passed to `_construct`'s callback with one passed to an earlier destroy()
+ * into an AggregateError that has no code. So while OPEN is pending, a session ending settles the
+ * construct callback instead of destroying the stream, and only the first outcome is reported.
+ */
+function settleOnce(callback: (error?: Error | null) => void): {
+  readonly pending: boolean;
+  settle(error?: Error): void;
+} {
+  let pending = true;
+  return {
+    get pending() {
+      return pending;
+    },
+    settle(error?: Error): void {
+      if (!pending) return;
+      pending = false;
+      callback(error);
+    },
+  };
 }
 
 function malformedOpen(context: OperationContext): RemoteFsError {
