@@ -5,6 +5,7 @@ import type {
   MkdirOptions,
   RemoteEntry,
   RemoteFileSystem,
+  WriteStreamOptions,
 } from '../fs/types.js';
 import { openSession, type ConnectAttempt } from './connection.js';
 import * as operations from './operations.js';
@@ -134,9 +135,13 @@ export class SftpFileSystem implements RemoteFileSystem {
     return createSftpReadStream(this.#session, path);
   }
 
-  createWriteStream(path: string): Writable {
+  createWriteStream(path: string, options: WriteStreamOptions = {}): Writable {
     requirePath('path', path);
-    return createSftpWriteStream(this.#session, path);
+    return createSftpWriteStream(
+      this.#session,
+      path,
+      options.exclusive === true,
+    );
   }
 
   async mkdir(path: string, options: MkdirOptions = {}): Promise<void> {

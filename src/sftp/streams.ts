@@ -18,7 +18,10 @@ import { isDirectory } from './entries.js';
  * requests and lets them continue after backpressure stopped the stream. FEATURE-6 may tune both.
  */
 export const CHUNK_SIZE = 31 * 1024;
-/** Outstanding requests per stream: at most 512 KiB in flight, enough to hide link latency. */
+/**
+ * Outstanding requests per stream: at most 496 KiB in flight (16 × 31 KiB), enough to hide link
+ * latency.
+ */
 export const WINDOW = 16;
 /** G-5: consecutive empty, non-EOF replies at one offset before a read stream gives up. */
 export const MAX_EMPTY_READS = 3;
@@ -52,6 +55,32 @@ async function explainFailure(
     }
   }
   return toRemoteFsError(error, context);
+}
+
+/**
+ * SFTP v3 has no status for "exists": a refused exclusive open answers FAILURE (later versions
+ * FILE_ALREADY_EXISTS). A `stat` on that failure path, and only there, tells ALREADY_EXISTS apart.
+ */
+async function explainExclusiveFailure(
+  session: Session,
+  error: unknown,
+  context: OperationContext,
+): Promise<RemoteFsError> {
+  if (error instanceof SftpStatusError) {
+    try {
+      await session.request<unknown>((sftp, done) =>
+        sftp.stat(context.path ?? '', done),
+      );
+      return operationError(
+        'ALREADY_EXISTS',
+        context,
+        reasonFor('ALREADY_EXISTS'),
+      );
+    } catch {
+      // No file at the path: the open failed for another reason, which explainFailure reports.
+    }
+  }
+  return explainFailure(session, error, context);
 }
 
 function notConnected(context: OperationContext): RemoteFsError {
@@ -289,10 +318,13 @@ class SftpWriteStream extends Writable {
   #writeCallback: ((error?: Error | null) => void) | undefined;
   #finalCallback: ((error?: Error | null) => void) | undefined;
 
-  constructor(session: Session | undefined, path: string) {
+  readonly #exclusive: boolean;
+
+  constructor(session: Session | undefined, path: string, exclusive: boolean) {
     super({ highWaterMark: CHUNK_SIZE * WINDOW });
     this.#session = session;
     this.#context = { operation: 'write', path };
+    this.#exclusive = exclusive;
   }
 
   override _construct(callback: (error?: Error | null) => void): void {
@@ -313,7 +345,7 @@ class SftpWriteStream extends Writable {
     });
     session
       .request<Buffer>((sftp, done) =>
-        sftp.open(this.#context.path ?? '', 'w', done),
+        sftp.open(this.#context.path ?? '', this.#exclusive ? 'wx' : 'w', done),
       )
       .then(
         (handle) => {
@@ -331,7 +363,9 @@ class SftpWriteStream extends Writable {
         },
         async (error: unknown) => {
           if (!open.pending) return;
-          const mapped = await explainFailure(session, error, this.#context);
+          const mapped = this.#exclusive
+            ? await explainExclusiveFailure(session, error, this.#context)
+            : await explainFailure(session, error, this.#context);
           open.settle(mapped);
         },
       );
@@ -485,9 +519,11 @@ export function createSftpReadStream(
   return new SftpReadStream(session, path);
 }
 
+/** With `exclusive`, the open carries SSH_FXF_EXCL: an existing file fails it (ALREADY_EXISTS). */
 export function createSftpWriteStream(
   session: Session | undefined,
   path: string,
+  exclusive = false,
 ): Writable {
-  return new SftpWriteStream(session, path);
+  return new SftpWriteStream(session, path, exclusive);
 }

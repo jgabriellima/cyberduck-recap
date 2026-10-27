@@ -71,6 +71,7 @@ describe('SftpFileSystem authentication (AC-4, AC-5, AC-26)', () => {
     const error = await expectRejects(fs.connect(), 'AUTH_FAILED');
 
     expect(error.message).toMatch(/could not be decrypted/);
+    expect(error.reason).toBe('PRIVATE_KEY_PASSPHRASE_WRONG');
     await expectRejects(fs.list('/'), 'NOT_CONNECTED');
   });
 
@@ -81,7 +82,9 @@ describe('SftpFileSystem authentication (AC-4, AC-5, AC-26)', () => {
       privateKey: userKey.privateKey,
     });
 
-    await expectRejects(fs.connect(), 'AUTH_FAILED');
+    const error = await expectRejects(fs.connect(), 'AUTH_FAILED');
+    expect(error.message).toMatch(/encrypted and no passphrase was given/);
+    expect(error.reason).toBe('PRIVATE_KEY_ENCRYPTED');
     expect(fixture.stats.authAttempts).toBe(0);
   });
 
@@ -100,6 +103,7 @@ describe('SftpFileSystem authentication (AC-4, AC-5, AC-26)', () => {
       const error = await expectRejects(fs.connect(), 'AUTH_FAILED');
 
       expect(error.message).toMatch(/private key could not be parsed/);
+      expect(error.reason).toBe('PRIVATE_KEY_INVALID');
       expect(fixture.stats.authAttempts).toBe(0);
       expect(fixture.stats.connections).toBe(0);
     },
