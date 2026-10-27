@@ -1,0 +1,32 @@
+apiVersion: sdlc/v1
+kind: Standard
+metadata:
+  id: cyberduck/standard.single-source
+  version: 1.0.0
+  summary: A behaviour or a list of names that src/ needs in more than one place has one source
+  description: >
+    From BUG-2's learn node (standard_proposals, owner approved). FEATURE-1's review found the
+    _construct of the read and write streams duplicated and the FAILURE stat rule implemented
+    three times. BUG-2's review found the OPEN logic copied into SftpReadStream._construct and
+    SftpWriteStream._construct (src/sftp/streams.ts; the two bodies differ only in the open flag
+    'r' or 'w'), and MALFORMED_PARTS (src/sftp/error-map.ts) copied by hand from the part names
+    that toChannel passes to expecting() in src/sftp/connection.ts. Insight topics: "stream open
+    duplication", "malformed reply part names".
+    Scope: the standard binds every change from its approval, on the code that change adds or
+    edits. A change that adds a second copy, or edits one of the copies, moves it to the one
+    source in the same change. The two copies on main when the standard was approved are the
+    follow-ups follow-ups.code.stream-open-single-source and
+    follow-ups.code.malformed-parts-single-source; until they land, the review does not fail an
+    unrelated change for them.
+    Enforcement: the review judges it, with no gate. No tool of the toolchain verifies it. ESLint
+    has no duplicate-code rule, and a clone detector (for example jscpd) finds copied blocks but
+    not a list of names copied from string literals elsewhere, such as MALFORMED_PARTS. A gate
+    over such a tool would also fail every change until the follow-ups land.
+spec:
+  category: code
+  statement: >-
+    A behaviour or a list of names that src/ needs in more than one place has one source: a shared
+    helper, or a constant the other places import or derive from, so that copies cannot drift.
+    A change that adds or edits such a copy moves it to the one source; the copies on main at
+    approval are follow-ups.
+  applies_to: { kinds: [feature, bug, refinement, incident, chore] }

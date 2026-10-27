@@ -1,0 +1,41 @@
+apiVersion: sdlc/v1
+kind: Standard
+metadata:
+  id: cyberduck/standard.verifier-proves-criterion
+  version: 1.0.0
+  summary: The Verifier of an acceptance criterion checks the whole criterion, with its bound, scope and list
+  description: >
+    From BUG-2's learn node (category testing, owner approved). Insights:
+    gate.reworked:sdlc/gate.spec-challenged sent work back 10 times over 3 runs (up to 4 rounds in
+    one run), and sdlc/persona.ambiguity-hunter gave 10 blocking findings over 3 runs. Cases:
+    BUG-2 AC-16 stated settlement within 1 turn, but its Verifiers waited settleWithin(20) and
+    settleWithin(30) (test/adversarial/copyof-and-catch-all.test.ts), so a request that settled in
+    20 turns failed the criterion and passed its Verifier; the spec that passed states "within 30
+    turns" and says the bound each Verifier checks. BUG-2 AC-20 stated "no existing test is
+    weakened" over test/, but its first diff check left out test/support. FEATURE-1 AC-23 stated
+    an allow-list of licences, but its first Verifier rejected only GPL names, so an MPL or an
+    unknown licence passed it.
+    How to state a bound: a Verifier that waits up to N (turns, milliseconds, items) for a
+    condition proves only "within N". A tolerance in a test helper is legitimate; the spec then
+    does one of these: the criterion states the bound N that the Verifier checks, or the Verifier
+    also asserts the tighter bound that the criterion states (for example, it counts the turns and
+    asserts at most 1). The same holds for a scope (every path the criterion names, also
+    test/support) and for a list (an allow-list is checked as an allow-list, not as a deny-list of
+    some names).
+    Relation to other rules: baseline/standard.tests asks that changed behaviour has passing
+    tests; .claude/rules/testing-evidence.md asks that the Verifier names the test, that it fails
+    without the change, and that it asserts an observable outcome. This standard adds that the
+    Verifier fails for every outcome that fails the criterion. It does not contradict either.
+    Enforcement: judged, with no gate. sdlc/gate.acceptance-covered and
+    sdlc/gate.acceptance-authored check only that each criterion has a passing test, and no tool
+    of the toolchain compares the prose of a criterion with the bound, scope or list a test
+    checks. The planner meets it at specify; sdlc/gate.spec-challenged (the ambiguity hunter)
+    judges it at the exit of specify, and sdlc/gate.code-review judges the finished tests.
+spec:
+  category: testing
+  statement: >-
+    The Verifier of each acceptance criterion proves the whole criterion: it checks the same bound,
+    scope and list that the criterion states, so no outcome fails the criterion and still passes
+    its Verifier. When a test waits up to a tolerance, the criterion states that bound, or the
+    Verifier also asserts the tighter bound the criterion states.
+  applies_to: { kinds: [feature, bug, refinement, incident] }
