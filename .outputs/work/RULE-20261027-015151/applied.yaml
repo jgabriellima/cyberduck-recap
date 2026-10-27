@@ -1,0 +1,30 @@
+# What the specialization RULE-20261027-015151 applied, and where. The contracts themselves live in .sdlc/.
+schema: sdlc.specialization-receipt.v1
+run: RULE-20261027-015151
+applied_at: 2026-10-27T11:28:00.775Z
+proposal: sha256:513b7b7f863e0f565b964119f1fca0fc5e75ebcd31003049cddea08b3099d8ad
+summary: summary.md
+files:
+  - path: .sdlc/sdlc.yaml
+    action: merged
+    before: sha256:e63d9356668a86b6f48524b1b61b3b612b9e1f251fab9ec1061bcbc6f9238a9c
+    after: sha256:e63d9356668a86b6f48524b1b61b3b612b9e1f251fab9ec1061bcbc6f9238a9c
+  - path: .sdlc/overlay/standards/comment-width.yaml
+    action: created
+    after: sha256:3f204d01d189a508cd3c320b8d0bef299cf8eb5fc9e2945f4fee684b6296dd07
+  - path: .sdlc/decisions/follow-ups.yaml
+    action: merged
+    before: sha256:36999ca2544f14ec1c99e1da693fbe700f09aa975cad2c248a742e72a96f6faa
+    after: sha256:fedd8458c0bc30e8d70990cdac10ed777f86ad2e9a168f8ef7204e90f4cbd027
+decisions:
+  added:
+    - follow-ups/comment-width-lint
+  replaced:
+    - follow-ups/scaffold
+    - follow-ups/product-requirements
+    - follow-ups/github-work-items
+    - follow-ups/github-actions-ci
+    - follow-ups/remote
+    - follow-ups/sanitise-format-characters
+    - follow-ups/stream-open-single-source
+    - follow-ups/malformed-parts-single-source

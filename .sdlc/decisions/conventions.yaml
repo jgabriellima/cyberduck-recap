@@ -1,26 +1,26 @@
-# The Definition of Done areas sdlc/baseline does not cover. Integration and review stay settled
-# as none by the owner's interview; architecture now has the standard FEATURE-1 proposed
-# (RULE-20261026-190823), so it is no longer none.
+# The Definition of Done areas sdlc/baseline does not cover.
+# RULE-20261027-014639: RULE-20261027-013133 meant to remove conventions/architecture, but the
+# apply merged the topic by id and kept it, so conventions.architecture is still decided twice:
+# here as cyberduck/standard.protocol-boundaries and in interview/conventions-architecture as
+# "baseline". This record now holds the interview's answer as given, so the subject has one value.
+# The architecture standards (cyberduck/standard.protocol-boundaries,
+# cyberduck/standard.session-ending-settles-once) keep the category; the record adds no rule.
+# Integration and review record the interview's answer as given: "default (baseline)".
 schema: sdlc.project-decisions.v1
 topic: conventions
 decisions:
   - id: architecture
     subject: conventions.architecture
     status: decided
-    value: cyberduck/standard.protocol-boundaries
-    rationale: >-
-      FEATURE-1's ticket keeps the CLI, queue, sync and UI independent of any protocol, and its boundary tests (test/fs/boundary.test.ts, test/boundary/ssh2-imports.test.ts) enforce it.
+    value: baseline
     provenance:
-      kind: extracted
-      evidence:
-        - command: grep -n 'must not depend on a specific protocol' .outputs/work/FEATURE-1/spec.md
-          output: "31:> operations, and the CLI, queue, sync and UI must not depend on a specific protocol."
-        - command: pnpm exec vitest run test/fs/boundary.test.ts test/boundary/ssh2-imports.test.ts
-          output: "Test Files 2 passed (2); Tests 5 passed (5)"
+      kind: asked
+      question: "Architecture: do you hold the code to a structure (layers, module boundaries, e.g. protocol back-ends kept apart from the UI)? Answer in your words, or keep the baseline (no rule of its own)."
+      answer: default (baseline)
   - id: integration
     subject: conventions.integration
     status: decided
-    value: none
+    value: baseline
     provenance:
       kind: asked
       question: "Integration: how changes land: anything beyond one pull request per change with checks green (commit format, release notes, changelog), or none?"
@@ -28,7 +28,7 @@ decisions:
   - id: review
     subject: conventions.review
     status: decided
-    value: none
+    value: baseline
     provenance:
       kind: asked
       question: "Review: beyond the agent review panel and your approval at the gates, must a person review every pull request before merge, or anything else, or none?"
