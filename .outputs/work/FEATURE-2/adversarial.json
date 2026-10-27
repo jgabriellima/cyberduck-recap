@@ -223,7 +223,8 @@
         "src/cli/url.ts"
       ],
       "test": "test/adversarial/cli-url-password-redaction.test.ts",
-      "outcome": "refuted"
+      "outcome": "refuted",
+      "replay": true
     },
     {
       "id": "ATK-69",
@@ -248,7 +249,8 @@
         "src/cli/url.ts"
       ],
       "test": "test/adversarial/cli-url-password-redaction.test.ts",
-      "outcome": "refuted"
+      "outcome": "refuted",
+      "replay": true
     },
     {
       "id": "ATK-71",
@@ -259,7 +261,8 @@
       ],
       "test": "test/adversarial/cli-url-password-redaction.test.ts",
       "outcome": "deferred",
-      "finding": "deferred: an unencoded password whose text before its first '/' is all digits ('mem://u:1/<secret>@h/') is a valid URL: host 'u', port 1, path '/<secret>@h/', no password. The CLI connects and its NOT_FOUND line (exit 16) names the path with the secret. No criterion or standard applies, because the URL holds no password and the CLI cannot tell this text from a real path; a heuristic (':' digits '/' ... '@') could refuse it. The test pins today's behaviour without a skip (project rule: no skipped tests in committed code)."
+      "finding": "deferred: an unencoded password whose text before its first '/' is all digits ('mem://u:1/<secret>@h/') is a valid URL: host 'u', port 1, path '/<secret>@h/', no password. The CLI connects and its NOT_FOUND line (exit 16) names the path with the secret. No criterion or standard applies, because the URL holds no password and the CLI cannot tell this text from a real path; a heuristic (':' digits '/' ... '@') could refuse it. The test pins today's behaviour without a skip (project rule: no skipped tests in committed code).",
+      "replay": true
     },
     {
       "id": "ATK-72",
@@ -280,7 +283,33 @@
       ],
       "test": "test/adversarial/cli-url-password-redaction.test.ts",
       "outcome": "deferred",
-      "finding": "deferred: a full-width '＠' (U+FF20) or '%40' typed for the '@' ('sftp://u:a/<secret>＠h:65536/') gives no user information, because the URL parser splits it only at an ASCII '@'. The URL fails on its port and shownUrl, which also needs an ASCII '@', shows the text as typed in the USAGE line (exit 2). The text holds no password by the URL grammar, so AC-19 does not apply. Related probes that also break no criterion: a no-break space or U+2028 inside '://', and 'scheme:\\\\u:p@h' (a backslash is '/' only for special schemes, and sftp is not one), are valid hostless URLs; the sftp back-end refuses them with INVALID_ARGUMENT and no path. The test pins today's behaviour without a skip."
+      "finding": "deferred: a full-width '＠' (U+FF20) or '%40' typed for the '@' ('sftp://u:a/<secret>＠h:65536/') gives no user information, because the URL parser splits it only at an ASCII '@'. The URL fails on its port and shownUrl, which also needs an ASCII '@', shows the text as typed in the USAGE line (exit 2). The text holds no password by the URL grammar, so AC-19 does not apply. Related probes that also break no criterion: a no-break space or U+2028 inside '://', and 'scheme:\\\\u:p@h' (a backslash is '/' only for special schemes, and sftp is not one), are valid hostless URLs; the sftp back-end refuses them with INVALID_ARGUMENT and no path. The test pins today's behaviour without a skip.",
+      "replay": true
+    },
+    {
+      "id": "ATK-74",
+      "persona": "sdlc/persona.careless-user",
+      "topic": "secrets on the command line",
+      "target": [
+        "src/cli/run.ts",
+        "src/sftp/known-hosts.ts",
+        "src/cli/redact.ts"
+      ],
+      "test": "test/adversarial/cli-known-hosts-path-redaction.test.ts",
+      "outcome": "exposed",
+      "finding": "exposed (AC-19 'excluded': a password in stderr or in an error line). A URL with a password typed as the --known-hosts value ('ls --known-hosts sftp://u:<secret>@h/kh <url>') is redacted in the two hints of run.ts only. Three lines still show it: (1) on a terminal, the AC-24 prompt 'Type yes to trust it and record it in /<cwd>/sftp:/u:<secret>@h/kh: ' (run.ts confirmHostKey uses the raw knownHostsPath); (2) a path that cannot be read (ENOTDIR): 'CONNECTION_FAILED: could not read the known_hosts file .../sftp:/u:<secret>@h/kh' (src/sftp/known-hosts.ts readKnownHosts); (3) after 'yes', a path whose directory does not exist: 'CONNECTION_FAILED: could not record the host key in the known_hosts file .../sftp:/u:<secret>@h/kh' (appendKnownHost). Reproduced by the 3 failing cases of the test. The same file shows the get destination slot holds: 'sftp://u:<secret>@h', 'sftp://u:<secret>@h/' and 'x/sftp://u:<secret>@h/f' give LOCAL_FILE, exit 3, no connection, no secret; and the non-terminal HOST_KEY_UNKNOWN hint redacts it. Request: pass the known_hosts path through shownUrl in the prompt, and in the two back-end lines (or give the back-end the shown path for its text), and keep these cases passing."
+    },
+    {
+      "id": "ATK-75",
+      "persona": "sdlc/persona.integration-failure",
+      "topic": "transfer failure side attribution",
+      "target": [
+        "src/cli/commands/transfer.ts",
+        "src/fs/errors.ts"
+      ],
+      "test": "test/adversarial/cli-transfer-failing-side.test.ts",
+      "outcome": "deferred",
+      "finding": "deferred: the shared rule holds for every case the criteria name: both sides fail in one tick (download and upload, either order) give the first side and its error; the local file failing at its last flush after the remote end is 'local'; a remote final-flush failure is 'remote'; a remote stream that cannot be made (an Error, a string, undefined thrown) is 'remote' with the local side destroyed; an error after a finished transfer is handled; errnoOf gives a code only for a string 'code' (null, undefined, strings, numbers, object codes, prototype-less objects give undefined). The weakness: a remote stream destroyed with no error makes pipeline tear the local side down with ERR_STREAM_PREMATURE_CLOSE, which is the first 'error' event, so the failure reads as 'local' and get would print LOCAL_FILE (exit 3) for a remote stream that ended early. It does not block: every back-end of the project fails a stream with an 'error' event (ATK-69 shows CONNECTION_LOST), so no criterion or standard is broken, and the rule was the same before the rework. The test pins today's behaviour without a skip (project rule: no skipped tests in committed code)."
     }
   ]
 }
