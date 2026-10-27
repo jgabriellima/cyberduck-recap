@@ -13,19 +13,21 @@ export interface RemoteLocation {
 }
 
 /**
- * The URL as the person typed it, for an error line, with the text after the first `:` of the
- * user information replaced: a URL that fails to parse may still hold a password.
+ * The URL as the person typed it, for an error line, with the password replaced by `***`. A URL
+ * that fails to parse may still hold a password, and an unencoded one may hold `/`, `?`, `#`, `:`
+ * or `@`; so the user information runs from the `://` to the last `@` of the whole text, and the
+ * text between its first `:` and that `@` is redacted. A path that holds `@` is over-redacted,
+ * which costs only detail in an error line.
  */
 function shownUrl(text: string): string {
-  const match = /^([^:/?#]*:\/\/)([^/?#]*)(.*)$/s.exec(text);
-  if (match === null) return text;
-  const [, start = '', authority = '', rest = ''] = match;
-  const at = authority.lastIndexOf('@');
-  if (at < 0) return text;
-  const userInfo = authority.slice(0, at);
-  const colon = userInfo.indexOf(':');
-  if (colon < 0) return text;
-  return `${start}${userInfo.slice(0, colon)}:***${authority.slice(at)}${rest}`;
+  const separator = text.indexOf('://');
+  if (separator < 0) return text;
+  const start = separator + 3;
+  const at = text.lastIndexOf('@');
+  if (at < start) return text;
+  const colon = text.indexOf(':', start);
+  if (colon < 0 || colon > at) return text;
+  return `${text.slice(0, colon)}:***${text.slice(at)}`;
 }
 
 function decode(text: string, part: string): string {

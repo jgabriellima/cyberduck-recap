@@ -690,8 +690,10 @@ Details fixed at implementation (no criterion names them):
 - `ls` prints `?` for a size that is not a non-negative safe integer and for an invalid
   `modifiedAt`, so an out-of-range entry keeps its 3 TABs and is never an `INTERNAL` defect
   (ATK-6).
-- The `invalid URL '<x>'` line replaces the text after the first `:` of the URL's user
-  information with `***`: a URL that fails to parse may still hold a password (ATK-1).
+- The `invalid URL '<x>'` line replaces the text from the first `:` after `://` up to the last
+  `@` of the whole URL with `***`: a URL that fails to parse may still hold a password, and an
+  unencoded one may hold `/`, `?`, `#`, `:` or `@` (ATK-1, ATK-68). A path with `@` is
+  over-redacted; that costs only detail in an error line.
 - `parseArgs` runs with `strict: false` and `tokens: true`; the CLI words every option error
   itself, so no option value reaches an error line (ATK-1).
 - After the host-key answer the CLI writes one LF, so the next line starts on its own line when
