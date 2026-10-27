@@ -1,0 +1,26 @@
+apiVersion: sdlc/v1
+kind: Standard
+metadata:
+  id: cyberduck/standard.session-ending-settles-once
+  version: 1.0.0
+  summary: When a session ends, every pending request and stream settles once with one typed error
+  description: >
+    From BUG-2's learn node (standard_proposals, owner approved). Insight finding.topic "stream
+    teardown": 8 blocking findings over 2 runs, all exposed by attacks. BUG-1 ATK-62: a stream
+    that opens when the session ends emitted an AggregateError of two RemoteFsErrors with no code
+    or path; BUG-2 fixed it with settleOnce (src/sftp/streams.ts). FEATURE-1's review found the
+    liveness probe outside Session.request left unanswered entries before the stall teardown.
+    cyberduck/standard.untrusted-server-replies covers malformed replies, not a session that ends
+    under a pending request or stream. The tests that show the form are
+    test/adversarial/open-teardown.test.ts, test/adversarial/settle-once.test.ts and
+    test/sftp/stream-session-ending.test.ts; they run under sdlc/gate.tests-pass. No tool can find
+    every ending a change adds or every pending request it leaves, so whether each ending settles
+    once and has an adversarial test is the review's judgement, with no gate of its own.
+spec:
+  category: architecture
+  statement: >-
+    When a session ends at any point (transport close, an OPEN or request reply with no status,
+    disconnect()), every pending request and stream settles exactly once with one typed
+    RemoteFsError that carries its code and path, never an AggregateError or a second error, and a
+    handle that arrives after the end is closed; an adversarial test covers each ending.
+  applies_to: { kinds: [feature, bug, refinement, incident, chore] }

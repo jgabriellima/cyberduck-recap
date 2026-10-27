@@ -1,0 +1,36 @@
+# What the specialization RULE-20261027-014639 applied, and where. The contracts themselves live in .sdlc/.
+schema: sdlc.specialization-receipt.v1
+run: RULE-20261027-014639
+applied_at: 2026-10-27T01:51:07.105Z
+proposal: sha256:6e158b71c990eaca774c2505c44229aae203d504692922c75317016fe72e32e1
+summary: summary.md
+files:
+  - path: .sdlc/sdlc.yaml
+    action: merged
+    before: sha256:e63d9356668a86b6f48524b1b61b3b612b9e1f251fab9ec1061bcbc6f9238a9c
+    after: sha256:e63d9356668a86b6f48524b1b61b3b612b9e1f251fab9ec1061bcbc6f9238a9c
+  - path: .sdlc/overlay/standards/single-source.yaml
+    action: created
+    after: sha256:6c0ce9182013205deabb673cb5c01f55d59238006b2ee62987923eba54d99252
+  - path: .sdlc/decisions/conventions.yaml
+    action: merged
+    before: sha256:2ad2a793b9ff9d64df29dd67d283a860a6f489b8edb24794c2e950f53b86ab86
+    after: sha256:b4aab972536ec3b30ed49d8bc8f487c543fd0298a1c147e039cec1f1f6404187
+  - path: .sdlc/decisions/follow-ups.yaml
+    action: merged
+    before: sha256:f41745d4204b193f293fa46b97d92dce784faaf6d2e1da89819d81e3dd7e011c
+    after: sha256:36999ca2544f14ec1c99e1da693fbe700f09aa975cad2c248a742e72a96f6faa
+decisions:
+  added:
+    - follow-ups/stream-open-single-source
+    - follow-ups/malformed-parts-single-source
+  replaced:
+    - conventions/architecture
+    - conventions/integration
+    - conventions/review
+    - follow-ups/scaffold
+    - follow-ups/product-requirements
+    - follow-ups/github-work-items
+    - follow-ups/github-actions-ci
+    - follow-ups/remote
+    - follow-ups/sanitise-format-characters

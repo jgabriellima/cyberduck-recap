@@ -1,4 +1,5 @@
 # Work the first runs deliver: the product and its scaffold are not decided by the specialization.
+# RULE-20261027-014639 adds the last two: the copies cyberduck/standard.single-source finds on main.
 schema: sdlc.project-decisions.v1
 topic: follow-ups
 decisions:
@@ -75,3 +76,29 @@ decisions:
       evidence:
         - command: grep -n 'CONTROL_CHARACTERS =' src/sftp/sanitize.ts
           output: "5:const CONTROL_CHARACTERS = /[\\u0000-\\u001f\\u007f-\\u009f]/g;"
+  - id: stream-open-single-source
+    subject: follow-ups.code.stream-open-single-source
+    status: decided
+    value:
+      work: >-
+        Bring src/sftp/streams.ts in line with cyberduck/standard.single-source: SftpReadStream._construct and SftpWriteStream._construct hold the same OPEN logic (session check, settleOnce, track/abort, request, late-handle close, malformed handle, explainFailure) and differ only in the open flag 'r' or 'w'. Move it to one shared helper that both call. The tests under test/sftp/ and test/adversarial/ (open-teardown, settle-once, stream-session-ending) keep passing. A refinement work item, delivered with /sdlc-deliver.
+    rationale: "The standard binds every change from its approval; BUG-2's review found this copy on main."
+    provenance:
+      kind: extracted
+      evidence:
+        - command: grep -n "override _construct\|sftp.open(this.#context.path" src/sftp/streams.ts
+          output: "90: override _construct (SftpReadStream); 107: sftp.open(..., 'r', done); 298: override _construct (SftpWriteStream); 315: sftp.open(..., 'w', done)"
+  - id: malformed-parts-single-source
+    subject: follow-ups.code.malformed-parts-single-source
+    status: decided
+    value:
+      work: >-
+        Bring src/sftp/error-map.ts in line with cyberduck/standard.single-source: MALFORMED_PARTS ('file handle', 'directory handle', 'directory entries', 'attributes', 'data') is copied by hand from the part names that src/sftp/connection.ts passes to expecting() and MalformedReplyError. Declare the part names once as a constant that both files import or derive from. A refinement work item, delivered with /sdlc-deliver.
+    rationale: "The standard binds every change from its approval; BUG-2's review found this copy on main."
+    provenance:
+      kind: extracted
+      evidence:
+        - command: grep -n "const MALFORMED_PARTS" src/sftp/error-map.ts
+          output: "59:const MALFORMED_PARTS: ReadonlySet<string> = new Set(["
+        - command: grep -n "expecting('" src/sftp/connection.ts
+          output: "160: 'file handle'; 180: 'directory handle'; 187: 'directory entries'; 190, 192: 'attributes'"
