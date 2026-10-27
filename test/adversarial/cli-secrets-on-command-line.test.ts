@@ -68,6 +68,15 @@ describe('ATK-1: a secret on the command line is never echoed', () => {
       '--password= with an = inside the value',
       (s: string) => ['ls', `--password=${s}=${s}`, 'mem://u@h/'],
     ],
+    ['a URL as the first positional', (s: string) => [`sftp://u:${s}@h/`]],
+    [
+      'a URL as the first positional after --identity',
+      (s: string) => ['--identity', 'k', `sftp://u:${s}@h/`],
+    ],
+    [
+      'a URL typed as an option name',
+      (s: string) => ['ls', `--sftp://u:${s}@h/`, 'mem://u@h/'],
+    ],
   ])('%s: exit 2, no connection, no secret', async (_label, argsOf) => {
     const { cwd, mem } = await setup();
     const secret = sentinel();
@@ -91,6 +100,37 @@ describe('ATK-1: a secret on the command line is never echoed', () => {
       home: cwd,
     });
     expect(run.code).toBe(0);
+    expectNoSecret(run, secret);
+    expect(mem.spy.connects).toBe(0);
+  });
+});
+
+describe('ATK-1: a URL typed where a local path goes is never echoed with its password', () => {
+  it.each([
+    [
+      'put with the URL as the local file',
+      (s: string) => ['put', `sftp://u:${s}@h/f`, 'mem://u@h/'],
+    ],
+    [
+      'get with the URL as the local destination',
+      (s: string) => ['get', 'mem://u@h/r.txt', `sftp://u:${s}@h/d/f`],
+    ],
+    [
+      '--identity with the URL as the key file',
+      (s: string) => ['ls', '--identity', `sftp://u:${s}@h/k`, 'mem://u@h/'],
+    ],
+  ])('%s: exit 3, no connection, no secret', async (_label, argsOf) => {
+    const { cwd, mem } = await setup();
+    const secret = sentinel();
+    const run = await cli(argsOf(secret), {
+      registry: registry({ mem: mem.factory }),
+      cwd,
+      home: cwd,
+    });
+    expect(run.code).toBe(3);
+    expect(stderrLines(run.stderr)[0]).toMatch(
+      /^cyberduck-recap: LOCAL_FILE: .*\*\*\*@h\//,
+    );
     expectNoSecret(run, secret);
     expect(mem.spy.connects).toBe(0);
   });

@@ -17,7 +17,7 @@ import {
 } from './known-hosts-path.js';
 import { writeError, writeHint, type Output } from './output.js';
 import { promptLine, TerminalReader, type Input } from './terminal.js';
-import { parseRemoteUrl } from './url.js';
+import { parseRemoteUrl, shownUrl } from './url.js';
 import { packageVersion } from './version.js';
 
 export interface CliContext {
@@ -62,13 +62,17 @@ function hintsFor(
   situation: Situation,
   isTTY: boolean,
 ): string[] {
-  const { identity, knownHostsPath } = situation;
+  const { identity } = situation;
+  const knownHostsPath =
+    situation.knownHostsPath === undefined
+      ? undefined
+      : shownUrl(situation.knownHostsPath);
   if (
     error.code === 'AUTH_FAILED' &&
     error.reason !== undefined &&
     identity !== undefined
   ) {
-    return [REASON_HINTS[error.reason](identity)];
+    return [REASON_HINTS[error.reason](shownUrl(identity))];
   }
   if (error.code === 'HOST_KEY_UNKNOWN') {
     if (isTTY) {

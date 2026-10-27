@@ -696,6 +696,10 @@ Details fixed at implementation (no criterion names them):
   password, an unencoded one may hold `/`, `?`, `#`, `:` or `@`, and a TAB or newline may split
   `://` (ATK-1, ATK-68, ATK-70). A path with `@` is over-redacted; that costs only detail in an
   error line.
+- The same function, `shownUrl` in `url.ts`, is the one source for every other error line and
+  hint that shows typed text: an unknown command, an unknown option name, a local path of `get`
+  or `put`, the `--identity` file and the known_hosts path. A URL typed in the wrong place never
+  shows its password (ATK-1).
 - `parseArgs` runs with `strict: false` and `tokens: true`; the CLI words every option error
   itself, so no option value reaches an error line (ATK-1).
 - After the host-key answer the CLI writes one LF, so the next line starts on its own line when

@@ -14,7 +14,7 @@ import { Writable, type Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { RemoteFileSystem } from '../../fs/types.js';
 import { localFileError, usageError } from '../errors.js';
-import { basename } from '../url.js';
+import { basename, shownUrl } from '../url.js';
 
 /**
  * The local file functions of `get`, in one object a unit test can replace, so the fallback for
@@ -79,7 +79,7 @@ async function isDirectory(path: string): Promise<boolean> {
 
 function existsError(destination: string): Error {
   return localFileError(
-    `${destination} exists; give --overwrite to replace it`,
+    `${shownUrl(destination)} exists; give --overwrite to replace it`,
   );
 }
 
@@ -109,14 +109,14 @@ export async function planGet(
 
   const directory = dirname(destination);
   if (!(await isDirectory(directory))) {
-    throw localFileError(`the directory ${directory} does not exist`);
+    throw localFileError(`the directory ${shownUrl(directory)} does not exist`);
   }
   let existing;
   try {
     existing = await localFiles.lstat(destination);
   } catch (error) {
     if (errnoOf(error) !== 'ENOENT') {
-      throw localFileError(`cannot write ${destination}`);
+      throw localFileError(`cannot write ${shownUrl(destination)}`);
     }
   }
   if (existing === undefined) {
@@ -124,7 +124,7 @@ export async function planGet(
   }
   if (!overwrite) throw existsError(destination);
   if (existing.isDirectory()) {
-    throw localFileError(`${destination} is a directory`);
+    throw localFileError(`${shownUrl(destination)} is a directory`);
   }
   return {
     remotePath,
@@ -195,7 +195,9 @@ export async function runGet(
   try {
     handle = await localFiles.open(temporary, 'wx', PRIVATE_FILE_MODE);
   } catch {
-    throw localFileError(`cannot create a temporary file in ${directory}`);
+    throw localFileError(
+      `cannot create a temporary file in ${shownUrl(directory)}`,
+    );
   }
   const finalMode = plan.keptMode ?? DEFAULT_FILE_MODE & ~umask;
   try {
@@ -204,13 +206,13 @@ export async function runGet(
       fileWriter(handle),
     );
     if (failure?.side === 'local') {
-      throw localFileError(`cannot write ${destination}`);
+      throw localFileError(`cannot write ${shownUrl(destination)}`);
     }
     if (failure !== undefined) throw failure.error;
     // fchmod on the open descriptor: the mode lands on the file that was written, whatever the
     // name points to by now.
     await handle.chmod(finalMode).catch(() => {
-      throw localFileError(`cannot write ${destination}`);
+      throw localFileError(`cannot write ${shownUrl(destination)}`);
     });
   } catch (error) {
     await handle.close().catch(() => undefined);
@@ -235,7 +237,7 @@ async function finish(
     try {
       await localFiles.rename(temporary, destination);
     } catch {
-      throw localFileError(`cannot write ${destination}`);
+      throw localFileError(`cannot write ${shownUrl(destination)}`);
     }
     return;
   }
@@ -248,7 +250,7 @@ async function finish(
       await copyExclusive(temporary, destination, finalMode);
       return;
     }
-    throw localFileError(`cannot write ${destination}`);
+    throw localFileError(`cannot write ${shownUrl(destination)}`);
   }
 }
 
@@ -267,7 +269,7 @@ async function copyExclusive(
     handle = await localFiles.open(destination, 'wx', finalMode);
   } catch (error) {
     if (errnoOf(error) === 'EEXIST') throw existsError(destination);
-    throw localFileError(`cannot write ${destination}`);
+    throw localFileError(`cannot write ${shownUrl(destination)}`);
   }
   try {
     await handle.chmod(finalMode);
@@ -285,7 +287,7 @@ async function copyExclusive(
     ) {
       await removeQuietly(destination);
     }
-    throw localFileError(`cannot write ${destination}`);
+    throw localFileError(`cannot write ${shownUrl(destination)}`);
   } finally {
     await handle.close().catch(() => undefined);
   }

@@ -1,6 +1,7 @@
 import { chmod, lstat, mkdir } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
 import { localFileError } from './errors.js';
+import { shownUrl } from './url.js';
 
 const PRIVATE_DIRECTORY = 0o700;
 
@@ -59,12 +60,12 @@ export async function ensurePrivateDirectory(directory: string): Promise<void> {
         const stats = await directoryFiles.lstat(path).catch(() => undefined);
         if (stats?.isDirectory() === true) continue;
       }
-      throw localFileError(`cannot create the directory ${path}`);
+      throw localFileError(`cannot create the directory ${shownUrl(path)}`);
     }
     try {
       await directoryFiles.chmod(path, PRIVATE_DIRECTORY);
     } catch {
-      throw localFileError(`cannot create the directory ${path}`);
+      throw localFileError(`cannot create the directory ${shownUrl(path)}`);
     }
   }
 }

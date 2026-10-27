@@ -1,5 +1,6 @@
 import { parseArgs } from 'node:util';
 import { usageError } from './errors.js';
+import { shownUrl } from './url.js';
 
 export type Command = 'ls' | 'get' | 'put';
 
@@ -39,7 +40,8 @@ function isCommand(value: string): value is Command {
 /**
  * Reads the command line. `--help`, `-h` and `--version` are found by a scan of the raw arguments
  * first, so they win over every other argument and over every error in them. An option is named
- * in an error by the text before its first `=` only: the value may be a secret.
+ * in an error by the text before its first `=` only: the value may be a secret. An unknown
+ * command or option is shown through `shownUrl`: it may be a URL typed in the wrong place.
  */
 export function parseCommandLine(args: readonly string[]): Parsed {
   if (args.includes('--help') || args.includes('-h')) return { kind: 'help' };
@@ -61,7 +63,7 @@ export function parseCommandLine(args: readonly string[]): Parsed {
   const [command, ...operands] = positionals;
   if (command === undefined) throw usageError('no command given');
   if (!isCommand(command)) {
-    throw usageError(`unknown command '${command}'`);
+    throw usageError(`unknown command '${shownUrl(command)}'`);
   }
 
   let identity: string | undefined;
@@ -88,7 +90,7 @@ export function parseCommandLine(args: readonly string[]): Parsed {
       if (token.name === 'identity') identity = token.value;
       else knownHosts = token.value;
     } else {
-      throw usageError(`unknown option '${rawName}'`);
+      throw usageError(`unknown option '${shownUrl(rawName)}'`);
     }
   }
 

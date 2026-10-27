@@ -4,6 +4,7 @@ import type { Credential, CredentialPolicy, Endpoint } from '../fs/backend.js';
 import { localFileError, usageError } from './errors.js';
 import { promptPassword, type Input, type TerminalReader } from './terminal.js';
 import type { Output } from './output.js';
+import { shownUrl } from './url.js';
 
 export const PASSWORD_VARIABLE = 'CYBERDUCK_RECAP_PASSWORD';
 export const PASSPHRASE_VARIABLE = 'CYBERDUCK_RECAP_PASSPHRASE';
@@ -39,7 +40,9 @@ export async function takeCredential(
     try {
       privateKey = await readFile(resolve(sources.cwd, identity));
     } catch {
-      throw localFileError(`cannot read the identity file ${identity}`);
+      throw localFileError(
+        `cannot read the identity file ${shownUrl(identity)}`,
+      );
     }
     return {
       kind: 'privateKey',

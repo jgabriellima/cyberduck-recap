@@ -5,6 +5,7 @@ import { pipeline } from 'node:stream/promises';
 import { RemoteFsError } from '../../fs/errors.js';
 import type { RemoteFileSystem } from '../../fs/types.js';
 import { localFileError } from '../errors.js';
+import { shownUrl } from '../url.js';
 
 /** The local file of `put`, open before the connection and read only after it. */
 export interface PutSource {
@@ -24,20 +25,22 @@ export async function openPutSource(
     handle = await open(resolve(cwd, localPath), 'r');
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT') throw localFileError(`${localPath} does not exist`);
-    if (code === 'EISDIR') throw localFileError(`${localPath} is a directory`);
-    throw localFileError(`cannot read ${localPath}`);
+    if (code === 'ENOENT')
+      throw localFileError(`${shownUrl(localPath)} does not exist`);
+    if (code === 'EISDIR')
+      throw localFileError(`${shownUrl(localPath)} is a directory`);
+    throw localFileError(`cannot read ${shownUrl(localPath)}`);
   }
   let isDirectory: boolean;
   try {
     isDirectory = (await handle.stat()).isDirectory();
   } catch {
     await handle.close().catch(() => undefined);
-    throw localFileError(`cannot read ${localPath}`);
+    throw localFileError(`cannot read ${shownUrl(localPath)}`);
   }
   if (isDirectory) {
     await handle.close().catch(() => undefined);
-    throw localFileError(`${localPath} is a directory`);
+    throw localFileError(`${shownUrl(localPath)} is a directory`);
   }
   return { shown: localPath, handle, streamed: false };
 }
@@ -124,7 +127,8 @@ export async function runPut(
     await pipeline(local, upload);
   } catch (error) {
     local.destroy();
-    if (first === 'local') throw localFileError(`cannot read ${source.shown}`);
+    if (first === 'local')
+      throw localFileError(`cannot read ${shownUrl(source.shown)}`);
     if (error instanceof RemoteFsError && error.code === 'ALREADY_EXISTS') {
       throw existsError(destination);
     }
