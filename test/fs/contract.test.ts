@@ -7,6 +7,7 @@ import {
   type RemoteEntry,
   type RemoteFileSystem,
   type RemoteFsErrorCode,
+  type WriteStreamOptions,
 } from '../../src/index.js';
 
 const SPEC_CODES = [
@@ -77,8 +78,9 @@ describe('public contract (AC-1)', () => {
     expectTypeOf<RemoteFileSystem['createReadStream']>().toEqualTypeOf<
       (path: string) => Readable
     >();
+    // FEATURE-2 (design 6A) adds the optional `{ exclusive }` of an upload that must not replace.
     expectTypeOf<RemoteFileSystem['createWriteStream']>().toEqualTypeOf<
-      (path: string) => Writable
+      (path: string, options?: WriteStreamOptions) => Writable
     >();
     expectTypeOf<RemoteFileSystem['remove']>().toEqualTypeOf<
       (path: string) => Promise<void>
