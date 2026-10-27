@@ -85,3 +85,12 @@ export class RemoteFsError extends Error {
 export function isRemoteFsError(value: unknown): value is RemoteFsError {
   return value instanceof RemoteFsError;
 }
+
+/**
+ * The `code` of a Node.js system error (`ENOENT`, `EEXIST`…), read without trusting the shape of
+ * the value: the one reading of it for the CLI and every back-end. Internal: not in the index.
+ */
+export function errnoOf(error: unknown): string | undefined {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === 'string' ? code : undefined;
+}

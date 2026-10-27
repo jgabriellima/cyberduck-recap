@@ -17,7 +17,8 @@ import {
 } from './known-hosts-path.js';
 import { writeError, writeHint, type Output } from './output.js';
 import { promptLine, TerminalReader, type Input } from './terminal.js';
-import { parseRemoteUrl, shownUrl } from './url.js';
+import { shownUrl } from './redact.js';
+import { parseRemoteUrl } from './url.js';
 import { packageVersion } from './version.js';
 
 export interface CliContext {

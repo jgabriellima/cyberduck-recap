@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { open, readFile } from 'node:fs/promises';
-import { RemoteFsError } from '../fs/errors.js';
+import { errnoOf, RemoteFsError } from '../fs/errors.js';
 import { fingerprint, keyType as blobKeyType } from './host-key.js';
 import { sanitizedCause } from './error-map.js';
 
@@ -137,7 +137,7 @@ export async function readKnownHosts(path: string): Promise<KnownHostEntry[]> {
   try {
     text = await readFile(path, 'utf8');
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    if (errnoOf(error) === 'ENOENT') return [];
     throw new RemoteFsError(
       'CONNECTION_FAILED',
       `could not read the known_hosts file ${path}`,

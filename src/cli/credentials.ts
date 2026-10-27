@@ -4,7 +4,7 @@ import type { Credential, CredentialPolicy, Endpoint } from '../fs/backend.js';
 import { localFileError, usageError } from './errors.js';
 import { promptPassword, type Input, type TerminalReader } from './terminal.js';
 import type { Output } from './output.js';
-import { shownUrl } from './url.js';
+import { shownUrl } from './redact.js';
 
 export const PASSWORD_VARIABLE = 'CYBERDUCK_RECAP_PASSWORD';
 export const PASSPHRASE_VARIABLE = 'CYBERDUCK_RECAP_PASSPHRASE';

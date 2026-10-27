@@ -1,9 +1,16 @@
 import { chmod, lstat, mkdir } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
-import { localFileError } from './errors.js';
-import { shownUrl } from './url.js';
+import { errnoOf } from '../fs/errors.js';
+import { localFileError, PROGRAM } from './errors.js';
+import { shownUrl } from './redact.js';
 
 const PRIVATE_DIRECTORY = 0o700;
+
+/** The configuration directory below the home directory when XDG_CONFIG_HOME does not apply. */
+const HOME_CONFIG = '.config';
+
+/** The CLI's known_hosts file below the configuration directory. */
+const KNOWN_HOSTS_BELOW_CONFIG = [PROGRAM, 'known_hosts'] as const;
 
 /**
  * The file functions of the directory step, in one object a unit test can replace, so a directory
@@ -24,8 +31,17 @@ export function defaultKnownHostsPath(
   const base =
     xdg !== undefined && xdg !== '' && isAbsolute(xdg)
       ? xdg
-      : join(home, '.config');
-  return join(base, 'cyberduck-recap', 'known_hosts');
+      : join(home, HOME_CONFIG);
+  return join(base, ...KNOWN_HOSTS_BELOW_CONFIG);
+}
+
+/**
+ * The rule of `defaultKnownHostsPath` in words for `--help`: the XDG path, then the fallback
+ * below `~`. Built from the same parts, so the help cannot drift from the path the CLI uses.
+ */
+export function defaultKnownHostsText(): readonly [string, string] {
+  const below = KNOWN_HOSTS_BELOW_CONFIG.join('/');
+  return [`$XDG_CONFIG_HOME/${below}`, `~/${HOME_CONFIG}/${below}`];
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -56,7 +72,7 @@ export async function ensurePrivateDirectory(directory: string): Promise<void> {
     try {
       await directoryFiles.mkdir(path, { mode: PRIVATE_DIRECTORY });
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      if (errnoOf(error) === 'EEXIST') {
         const stats = await directoryFiles.lstat(path).catch(() => undefined);
         if (stats?.isDirectory() === true) continue;
       }

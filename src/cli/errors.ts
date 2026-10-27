@@ -28,3 +28,11 @@ export function usageError(text: string): CliError {
 export function localFileError(text: string): CliError {
   return new CliError('LOCAL_FILE', text);
 }
+
+/**
+ * The one wording of the refusal of AC-8 (`get`) and AC-12 (`put`): a destination exists and only
+ * `--overwrite` replaces it.
+ */
+export function existsText(shownPath: string): string {
+  return `${shownPath} exists; give --overwrite to replace it`;
+}

@@ -1,6 +1,6 @@
 import { parseArgs } from 'node:util';
 import { usageError } from './errors.js';
-import { shownUrl } from './url.js';
+import { shownUrl } from './redact.js';
 
 export type Command = 'ls' | 'get' | 'put';
 

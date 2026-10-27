@@ -1,11 +1,10 @@
 import { open, type FileHandle } from 'node:fs/promises';
 import { basename as localBasename, resolve } from 'node:path';
-import type { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
-import { RemoteFsError } from '../../fs/errors.js';
+import { errnoOf, RemoteFsError } from '../../fs/errors.js';
 import type { RemoteFileSystem } from '../../fs/types.js';
-import { localFileError } from '../errors.js';
-import { shownUrl } from '../url.js';
+import { existsText, localFileError } from '../errors.js';
+import { shownUrl } from '../redact.js';
+import { upload } from './transfer.js';
 
 /** The local file of `put`, open before the connection and read only after it. */
 export interface PutSource {
@@ -24,7 +23,7 @@ export async function openPutSource(
   try {
     handle = await open(resolve(cwd, localPath), 'r');
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
+    const code = errnoOf(error);
     if (code === 'ENOENT')
       throw localFileError(`${shownUrl(localPath)} does not exist`);
     if (code === 'EISDIR')
@@ -46,11 +45,9 @@ export async function openPutSource(
 }
 
 function existsError(remotePath: string): RemoteFsError {
-  return new RemoteFsError(
-    'ALREADY_EXISTS',
-    `${remotePath} exists; give --overwrite to replace it`,
-    { path: remotePath },
-  );
+  return new RemoteFsError('ALREADY_EXISTS', existsText(remotePath), {
+    path: remotePath,
+  });
 }
 
 /** `undefined` when nothing has the path; NOT_FOUND is the only failure that means that. */
@@ -108,33 +105,21 @@ export async function runPut(
   }
   if (found !== undefined && !overwrite) throw existsError(destination);
 
-  // The first stream to fail names the side; a failure of the other is the teardown pipeline
-  // causes.
-  let first: 'local' | 'remote' | undefined;
-  const local: Readable = source.handle.createReadStream();
+  const local = source.handle.createReadStream();
   source.streamed = true;
-  local.on('error', () => {
-    first ??= 'local';
-  });
-  try {
-    // Inside the try: a back-end that throws here still has the local stream torn down below.
-    const upload = remote.createWriteStream(destination, {
-      exclusive: !overwrite,
-    });
-    upload.on('error', () => {
-      first ??= 'remote';
-    });
-    await pipeline(local, upload);
-  } catch (error) {
-    local.destroy();
-    if (first === 'local')
-      throw localFileError(`cannot read ${shownUrl(source.shown)}`);
-    if (error instanceof RemoteFsError && error.code === 'ALREADY_EXISTS') {
-      throw existsError(destination);
-    }
-    if (error instanceof RemoteFsError && error.code === 'CONNECTION_LOST') {
-      throw new PartialUploadError(error, destination);
-    }
-    throw error;
+  const failure = await upload(local, () =>
+    remote.createWriteStream(destination, { exclusive: !overwrite }),
+  );
+  if (failure === undefined) return;
+  if (failure.side === 'local') {
+    throw localFileError(`cannot read ${shownUrl(source.shown)}`);
   }
+  const { error } = failure;
+  if (error instanceof RemoteFsError && error.code === 'ALREADY_EXISTS') {
+    throw existsError(destination);
+  }
+  if (error instanceof RemoteFsError && error.code === 'CONNECTION_LOST') {
+    throw new PartialUploadError(error, destination);
+  }
+  throw error;
 }

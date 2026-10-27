@@ -10,11 +10,14 @@ import {
   type FileHandle,
 } from 'node:fs/promises';
 import { basename as localBasename, dirname, join, resolve } from 'node:path';
-import { Writable, type Readable } from 'node:stream';
+import { Writable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { RemoteFileSystem } from '../../fs/types.js';
-import { localFileError, usageError } from '../errors.js';
-import { basename, shownUrl } from '../url.js';
+import { errnoOf } from '../../fs/errors.js';
+import { existsText, localFileError, usageError } from '../errors.js';
+import { shownUrl } from '../redact.js';
+import { basename } from '../url.js';
+import { download } from './transfer.js';
 
 /**
  * The local file functions of `get`, in one object a unit test can replace, so the fallback for
@@ -64,11 +67,6 @@ function fileWriter(handle: FileHandle): Writable {
   });
 }
 
-function errnoOf(error: unknown): string | undefined {
-  const code = (error as { code?: unknown } | null)?.code;
-  return typeof code === 'string' ? code : undefined;
-}
-
 async function isDirectory(path: string): Promise<boolean> {
   try {
     return (await localFiles.stat(path)).isDirectory();
@@ -78,9 +76,7 @@ async function isDirectory(path: string): Promise<boolean> {
 }
 
 function existsError(destination: string): Error {
-  return localFileError(
-    `${shownUrl(destination)} exists; give --overwrite to replace it`,
-  );
+  return localFileError(existsText(shownUrl(destination)));
 }
 
 /**
@@ -134,41 +130,6 @@ export async function planGet(
   };
 }
 
-/** Which side failed first: the remote stream, or the local file. */
-type Failure =
-  | { readonly side: 'remote'; readonly error: unknown }
-  | { readonly side: 'local' };
-
-/**
- * Pipes the remote file into an open local file. The first stream to fail names the side: a
- * failure of the other is only the teardown pipeline causes.
- */
-async function transfer(
-  remote: () => Readable,
-  local: Writable,
-): Promise<Failure | undefined> {
-  let first: Failure | undefined;
-  local.on('error', () => {
-    first ??= { side: 'local' };
-  });
-  let source: Readable;
-  try {
-    source = remote();
-  } catch (error) {
-    local.destroy();
-    return { side: 'remote', error };
-  }
-  source.on('error', (error: unknown) => {
-    first ??= { side: 'remote', error };
-  });
-  try {
-    await pipeline(source, local);
-    return undefined;
-  } catch (error) {
-    return first ?? { side: 'remote', error };
-  }
-}
-
 async function removeQuietly(path: string): Promise<void> {
   await localFiles.unlink(path).catch(() => undefined);
 }
@@ -201,7 +162,7 @@ export async function runGet(
   }
   const finalMode = plan.keptMode ?? DEFAULT_FILE_MODE & ~umask;
   try {
-    const failure = await transfer(
+    const failure = await download(
       () => remote.createReadStream(plan.remotePath),
       fileWriter(handle),
     );

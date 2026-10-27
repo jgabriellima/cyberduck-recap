@@ -1,5 +1,7 @@
+import { PASSPHRASE_VARIABLE, PASSWORD_VARIABLE } from './credentials.js';
 import { PROGRAM } from './errors.js';
 import { EXIT_CODE_TABLE } from './exit-codes.js';
+import { defaultKnownHostsText } from './known-hosts-path.js';
 
 /** The text of `--help`: the command forms, the options, the schemes and the exit codes. */
 export function helpText(schemes: readonly string[]): string {
@@ -7,6 +9,7 @@ export function helpText(schemes: readonly string[]): string {
     ([exit, code, meaning]) =>
       `  ${String(exit).padStart(3)}  ${code.padEnd(19)}${meaning}`,
   );
+  const [xdgKnownHosts, homeKnownHosts] = defaultKnownHostsText();
   return [
     'Usage:',
     `  ${PROGRAM} ls  [options] <url>`,
@@ -16,13 +19,13 @@ export function helpText(schemes: readonly string[]): string {
     '',
     'Options:',
     '  --identity <file>     the private key file; its passphrase comes from',
-    '                        CYBERDUCK_RECAP_PASSPHRASE',
+    `                        ${PASSPHRASE_VARIABLE}`,
     '  --known-hosts <file>  the known_hosts file (default:',
-    '                        $XDG_CONFIG_HOME/cyberduck-recap/known_hosts or',
-    '                        ~/.config/cyberduck-recap/known_hosts)',
+    `                        ${xdgKnownHosts} or`,
+    `                        ${homeKnownHosts})`,
     '  --overwrite           replace an existing destination file (get, put only)',
     '',
-    'The password comes from CYBERDUCK_RECAP_PASSWORD, or from a prompt on a terminal.',
+    `The password comes from ${PASSWORD_VARIABLE}, or from a prompt on a terminal.`,
     '',
     `URL schemes: ${schemes.join(', ')}`,
     '',

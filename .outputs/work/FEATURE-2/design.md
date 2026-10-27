@@ -696,7 +696,7 @@ Details fixed at implementation (no criterion names them):
   password, an unencoded one may hold `/`, `?`, `#`, `:` or `@`, and a TAB or newline may split
   `://` (ATK-1, ATK-68, ATK-70). A path with `@` is over-redacted; that costs only detail in an
   error line.
-- The same function, `shownUrl` in `url.ts`, is the one source for every other error line and
+- The same function, `shownUrl` in `redact.ts`, is the one source for every other error line and
   hint that shows typed text: an unknown command, an unknown option name, a local path of `get`
   or `put`, the `--identity` file and the known_hosts path. A URL typed in the wrong place never
   shows its password (ATK-1).
@@ -767,6 +767,18 @@ there is no `--overwrite`, `ALREADY_EXISTS` with the message `<remote path> exis
 `ALREADY_EXISTS` from that stream gets the same AC-12 message and exit 18. A `CONNECTION_LOST`
 from it gets the hint of AC-14. The first stream to fail names the side: a local read failure is
 `LOCAL_FILE: cannot read <local-path>`.
+
+One source for what `get` and `put` share:
+
+- `commands/transfer.ts`: `download` (`get`) and `upload` (`put`) run the pipeline and return the
+  side (local or remote) whose stream failed first; a remote stream that cannot be made is a
+  remote failure.
+- `existsText` in `errors.ts`: the AC-8 and AC-12 line `<path> exists; give --overwrite to replace
+  it`.
+- `errnoOf` in `src/fs/errors.ts`: the one reading of a Node.js error `code`, for the CLI and the
+  SFTP back-end (`src/fs/` is the module both may import).
+- `--help` builds the credential variable names from `credentials.ts` and the default known_hosts
+  path from the parts that `defaultKnownHostsPath` joins.
 
 #### Composition and entry
 
