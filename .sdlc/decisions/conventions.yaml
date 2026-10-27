@@ -1,6 +1,10 @@
-# The Definition of Done areas sdlc/baseline does not cover. Integration and review stay settled
-# as none by the owner's interview; architecture now has the standard FEATURE-1 proposed
-# (RULE-20261026-190823), so it is no longer none.
+# The Definition of Done areas sdlc/baseline does not cover.
+# RULE-20261027-013133: architecture is kept by standards (cyberduck/standard.protocol-boundaries,
+# cyberduck/standard.session-ending-settles-once), so it needs no conventions decision. The earlier
+# conventions/architecture record decided conventions.architecture a second time against the
+# interview's answer, and `sdlc-engine proposal check` refuses a subject decided twice with
+# different values. Integration and review record the interview's answer as given:
+# "default (baseline)". Both "baseline" and "none" settle a category with no rule of its own.
 schema: sdlc.project-decisions.v1
 topic: conventions
 decisions:
@@ -20,7 +24,7 @@ decisions:
   - id: integration
     subject: conventions.integration
     status: decided
-    value: none
+    value: baseline
     provenance:
       kind: asked
       question: "Integration: how changes land: anything beyond one pull request per change with checks green (commit format, release notes, changelog), or none?"
@@ -28,7 +32,7 @@ decisions:
   - id: review
     subject: conventions.review
     status: decided
-    value: none
+    value: baseline
     provenance:
       kind: asked
       question: "Review: beyond the agent review panel and your approval at the gates, must a person review every pull request before merge, or anything else, or none?"

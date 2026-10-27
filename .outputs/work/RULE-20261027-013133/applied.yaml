@@ -1,0 +1,23 @@
+# What the specialization RULE-20261027-013133 applied, and where. The contracts themselves live in .sdlc/.
+schema: sdlc.specialization-receipt.v1
+run: RULE-20261027-013133
+applied_at: 2026-10-27T01:46:11.891Z
+proposal: sha256:6599cc3a18c321a4e7f1cb1c399b6386624af02f45432a74144a7c02b73aa8f4
+summary: summary.md
+files:
+  - path: .sdlc/sdlc.yaml
+    action: merged
+    before: sha256:e63d9356668a86b6f48524b1b61b3b612b9e1f251fab9ec1061bcbc6f9238a9c
+    after: sha256:e63d9356668a86b6f48524b1b61b3b612b9e1f251fab9ec1061bcbc6f9238a9c
+  - path: .sdlc/overlay/standards/session-ending-settles-once.yaml
+    action: created
+    after: sha256:496a9dd05a36526a6cceaa3063a05f1c3f832f93f46c5dc1ef213ed33c54a890
+  - path: .sdlc/decisions/conventions.yaml
+    action: merged
+    before: sha256:5e5cb426585c8ba85a8939d6e7d951009db1beb543409230957dca94688dcdba
+    after: sha256:2ad2a793b9ff9d64df29dd67d283a860a6f489b8edb24794c2e950f53b86ab86
+decisions:
+  added: []
+  replaced:
+    - conventions/integration
+    - conventions/review
