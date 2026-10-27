@@ -30,8 +30,14 @@ function nameField(line: string | undefined): string | undefined {
 }
 
 function expectNoRawCodePoint(result: RunResult): void {
-  for (const line of [...result.stdoutLines, ...result.stderrLines]) {
-    expect(hasRawEscapedCodePoint(line), JSON.stringify(line)).toBe(false);
+  // The three TABs that separate the fields of an ls line are the format of AC-28, not text:
+  // each field is checked on its own.
+  const texts = [
+    ...result.stdoutLines.flatMap((line) => line.split('\t')),
+    ...result.stderrLines,
+  ];
+  for (const text of texts) {
+    expect(hasRawEscapedCodePoint(text), JSON.stringify(text)).toBe(false);
   }
 }
 
