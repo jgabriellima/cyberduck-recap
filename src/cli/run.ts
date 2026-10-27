@@ -17,7 +17,7 @@ import {
 } from './known-hosts-path.js';
 import { writeError, writeHint, type Output } from './output.js';
 import { promptLine, TerminalReader, type Input } from './terminal.js';
-import { shownUrl } from './redact.js';
+import { redactingOutput, shownUrl } from './redact.js';
 import { parseRemoteUrl } from './url.js';
 import { packageVersion } from './version.js';
 
@@ -237,11 +237,19 @@ async function runCommand(
   }
 }
 
-/** Resolves to the exit code. Never rejects, never throws. */
+/**
+ * Resolves to the exit code. Never rejects, never throws. Both outputs are wrapped once, here, so
+ * no line any part of the CLI or a back-end writes can show a password typed in a URL (AC-19).
+ */
 export async function runCli(
   args: readonly string[],
-  context: CliContext,
+  given: CliContext,
 ): Promise<number> {
+  const context: CliContext = {
+    ...given,
+    stdout: redactingOutput(given.stdout, args, given.cwd),
+    stderr: redactingOutput(given.stderr, args, given.cwd),
+  };
   const situation: Situation = {
     identity: undefined,
     knownHostsPath: undefined,

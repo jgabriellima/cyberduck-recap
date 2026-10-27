@@ -700,6 +700,12 @@ Details fixed at implementation (no criterion names them):
   hint that shows typed text: an unknown command, an unknown option name, a local path of `get`
   or `put`, the `--identity` file and the known_hosts path. A URL typed in the wrong place never
   shows its password (ATK-1).
+- `shownUrl` shapes a line so it reads well; the guarantee is `redactingOutput` in `redact.ts`.
+  `runCli` wraps stdout and stderr in it once, so every line passes it: hints, prompts and a
+  back-end's error text, which names a path as it got it (ATK-74). It replaces `:<hidden>@` with
+  `:***@` for the hidden text of every argument, in each form a line can show it: as typed, as the
+  parser reads it, resolved against the working directory, the value after an option's `=`, and
+  each escaped. Text between a `:` and an `@` only, so the same characters elsewhere stay.
 - `parseArgs` runs with `strict: false` and `tokens: true`; the CLI words every option error
   itself, so no option value reaches an error line (ATK-1).
 - After the host-key answer the CLI writes one LF, so the next line starts on its own line when
