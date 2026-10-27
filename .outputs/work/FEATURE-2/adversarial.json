@@ -248,8 +248,7 @@
         "src/cli/url.ts"
       ],
       "test": "test/adversarial/cli-url-password-redaction.test.ts",
-      "outcome": "exposed",
-      "finding": "blocker: shownUrl in src/cli/url.ts looks for '://' in the raw text, but new URL() first removes every ASCII TAB and newline (WHATWG URL). A TAB or newline inside '://' ('mem:/<TAB>/u:a#<secret>@h/', 'mem:<LF>//u:a?<secret>@h/') still fails to parse, shownUrl finds no '://' and returns the whole text, so the USAGE line 'invalid URL '<x>'' writes the password to stderr (exit 2). This breaks the spec's 'Must never allow: a password ... in stderr, for any outcome' (AC-19). Failing test: test/adversarial/cli-url-password-redaction.test.ts > ATK-70 (2 cases)."
+      "outcome": "refuted"
     },
     {
       "id": "ATK-71",
@@ -260,7 +259,28 @@
       ],
       "test": "test/adversarial/cli-url-password-redaction.test.ts",
       "outcome": "deferred",
-      "finding": "deferred: an unencoded password whose text before its first '/' is all digits ('mem://u:1/<secret>@h/') is a valid URL: host 'u', port 1, path '/<secret>@h/', no password. The CLI connects and its NOT_FOUND line (exit 16) names the path with the secret. No criterion or standard applies, because the URL holds no password and the CLI cannot tell this text from a real path; a heuristic (':' digits '/' ... '@') could refuse it. Test skipped with this finding."
+      "finding": "deferred: an unencoded password whose text before its first '/' is all digits ('mem://u:1/<secret>@h/') is a valid URL: host 'u', port 1, path '/<secret>@h/', no password. The CLI connects and its NOT_FOUND line (exit 16) names the path with the secret. No criterion or standard applies, because the URL holds no password and the CLI cannot tell this text from a real path; a heuristic (':' digits '/' ... '@') could refuse it. The test pins today's behaviour without a skip (project rule: no skipped tests in committed code)."
+    },
+    {
+      "id": "ATK-72",
+      "persona": "sdlc/persona.security",
+      "topic": "secrets on the command line",
+      "target": [
+        "src/cli/url.ts"
+      ],
+      "test": "test/adversarial/cli-url-password-redaction.test.ts",
+      "outcome": "refuted"
+    },
+    {
+      "id": "ATK-73",
+      "persona": "sdlc/persona.edge-case-hunter",
+      "topic": "secrets on the command line",
+      "target": [
+        "src/cli/url.ts"
+      ],
+      "test": "test/adversarial/cli-url-password-redaction.test.ts",
+      "outcome": "deferred",
+      "finding": "deferred: a full-width '＠' (U+FF20) or '%40' typed for the '@' ('sftp://u:a/<secret>＠h:65536/') gives no user information, because the URL parser splits it only at an ASCII '@'. The URL fails on its port and shownUrl, which also needs an ASCII '@', shows the text as typed in the USAGE line (exit 2). The text holds no password by the URL grammar, so AC-19 does not apply. Related probes that also break no criterion: a no-break space or U+2028 inside '://', and 'scheme:\\\\u:p@h' (a backslash is '/' only for special schemes, and sftp is not one), are valid hostless URLs; the sftp back-end refuses them with INVALID_ARGUMENT and no path. The test pins today's behaviour without a skip."
     }
   ]
 }

@@ -91,18 +91,82 @@ describe('ATK-70: a TAB or newline the parser removes does not hide the user inf
 });
 
 /**
- * Deferred (ATK-71): an unencoded password whose text before its first `/`, `?` or `#` is all
- * digits makes a valid URL with another meaning: `mem://u:1/<s>@h/` is the host `u`, the port 1 and
- * the path `/<s>@h/`. The URL holds no password, so no rule of the spec applies; the CLI connects
- * and its error line names the path. Kept skipped: it records the finding and later runs replay it.
+ * ATK-72, on the ATK-70 fix: the redaction now reads the text as the URL parser does. Other shapes
+ * the parser accepts must not hide the user information either: an uppercase scheme, a second `@`
+ * after the password, leading and trailing C0 controls and spaces with a TAB inside `://`, and a
+ * leading no-break space that leaves the text with no scheme at all.
  */
-describe('ATK-71: a digits-first password with a / is read as a port and a path', () => {
-  it.skip('deferred ATK-71: exit 2, no connection, no secret', async () => {
+describe('ATK-72: other shapes the URL parser accepts do not hide the user information', () => {
+  it.each([
+    ['an uppercase scheme', (s: string) => `MEM://u:a/${s}@h:65536/`],
+    [
+      'a second @ after the password',
+      (s: string) => `mem://u:a#${s}@x@h:65536/`,
+    ],
+    [
+      'C0 controls and spaces around the text, a TAB inside ://',
+      (s: string) => ` \u0001mem:/\t/u:a/${s}@h:65536/ \u0002`,
+    ],
+    [
+      'a leading no-break space, so no scheme',
+      (s: string) => `\u00a0mem://u:a/${s}@h/`,
+    ],
+  ])('%s: exit 2, no connection, no secret', async (_label, urlOf) => {
     const secret = sentinel();
-    const run = await lsOf(`mem://u:1/${secret}@h/`);
+    const run = await lsOf(urlOf(secret));
 
     expect(run.code).toBe(2);
     expect(run.connects).toBe(0);
+    expect(stderrLines(run.stderr)[0]).toMatch(
+      /^cyberduck-recap: USAGE: invalid URL '.*:\*\*\*@/,
+    );
+    expect(run.stdout).not.toContain(secret);
     expect(run.stderr).not.toContain(secret);
   });
+});
+
+/**
+ * Deferred (ATK-71): an unencoded password whose text before its first `/`, `?` or `#` is all
+ * digits makes a valid URL with another meaning: `mem://u:1/<s>@h/` is the host `u`, the port 1 and
+ * the path `/<s>@h/`. The URL holds no password, so no rule of the spec applies; the CLI connects
+ * and its NOT_FOUND line names the path. This test pins that behaviour (it is not the wanted one):
+ * a fix that refuses the text changes it, and later runs replay the finding.
+ */
+describe('ATK-71: a digits-first password with a / is read as a port and a path', () => {
+  it('deferred ATK-71: today the NOT_FOUND line names the path', async () => {
+    const secret = sentinel();
+    const run = await lsOf(`mem://u:1/${secret}@h/`);
+
+    expect(run.code).toBe(16);
+    expect(run.connects).toBe(1);
+    expect(stderrLines(run.stderr)[0]).toBe(
+      `cyberduck-recap: NOT_FOUND: no such file (/${secret}@h/)`,
+    );
+  });
+});
+
+/**
+ * Deferred (ATK-73): a person who types a full-width `＠` (U+FF20) or `%40` for the `@` writes no
+ * user information, because the URL parser splits it only at an ASCII `@`. The URL then fails on
+ * its port, and the redaction, which also needs an ASCII `@`, shows the text as typed. The text
+ * holds no password by the URL grammar, so no rule of the spec applies. This test pins that
+ * behaviour (it is not the wanted one): a fix that redacts it changes it.
+ */
+describe('ATK-73: an @ the URL parser does not read as one is shown as typed', () => {
+  it.each([
+    ['a full-width @', (s: string) => `sftp://u:a/${s}\uff20h:65536/`],
+    ['a percent-encoded @', (s: string) => `sftp://u:a/${s}%40h:65536/`],
+  ])(
+    'deferred ATK-73, %s: today the USAGE line shows the text',
+    async (_label, urlOf) => {
+      const url = urlOf(sentinel());
+      const run = await lsOf(url);
+
+      expect(run.code).toBe(2);
+      expect(run.connects).toBe(0);
+      expect(stderrLines(run.stderr)[0]).toBe(
+        `cyberduck-recap: USAGE: invalid URL '${url}'`,
+      );
+    },
+  );
 });
