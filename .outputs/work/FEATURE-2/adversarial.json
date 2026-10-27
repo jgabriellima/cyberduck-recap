@@ -296,8 +296,8 @@
         "src/cli/redact.ts"
       ],
       "test": "test/adversarial/cli-known-hosts-path-redaction.test.ts",
-      "outcome": "exposed",
-      "finding": "exposed again (AC-19 'excluded': a password in stderr or in an error line); src/ is unchanged since the last round. Property that fails: text the person typed (here the --known-hosts value) is redacted only at some of the places that show it, not at every line the CLI writes. With 'ls --known-hosts sftp://u:<secret>@h/kh <url>' the two hints of run.ts are redacted, but three lines still show <secret>: (1) on a terminal, the AC-24 prompt 'Type yes to trust it and record it in <cwd>/sftp:/u:<secret>@h/kh: '; (2) an unreadable path (ENOTDIR): 'CONNECTION_FAILED: could not read the known_hosts file .../sftp:/u:<secret>@h/kh' (exit 13); (3) after 'yes', a missing directory: 'CONNECTION_FAILED: could not record the host key in the known_hosts file .../sftp:/u:<secret>@h/kh' (exit 13). Reproduce: pnpm exec vitest run test/adversarial/cli-known-hosts-path-redaction.test.ts (3 of 6 cases fail). This is the same weakness as ATK-68/70 by another way in: one fix that holds for every typed value and every output line (prompt, hint, back-end error) closes the class; another per-site patch would leave the next way in open."
+      "outcome": "refuted",
+      "replay": true
     },
     {
       "id": "ATK-75",
@@ -310,6 +310,29 @@
       "test": "test/adversarial/cli-transfer-failing-side.test.ts",
       "outcome": "deferred",
       "finding": "deferred: the shared rule holds for every case the criteria name: both sides fail in one tick (download and upload, either order) give the first side and its error; the local file failing at its last flush after the remote end is 'local'; a remote final-flush failure is 'remote'; a remote stream that cannot be made (an Error, a string, undefined thrown) is 'remote' with the local side destroyed; an error after a finished transfer is handled; errnoOf gives a code only for a string 'code' (null, undefined, strings, numbers, object codes, prototype-less objects give undefined). The weakness: a remote stream destroyed with no error makes pipeline tear the local side down with ERR_STREAM_PREMATURE_CLOSE, which is the first 'error' event, so the failure reads as 'local' and get would print LOCAL_FILE (exit 3) for a remote stream that ended early. It does not block: every back-end of the project fails a stream with an 'error' event (ATK-69 shows CONNECTION_LOST), so no criterion or standard is broken, and the rule was the same before the rework. The test pins today's behaviour without a skip (project rule: no skipped tests in committed code)."
+    },
+    {
+      "id": "ATK-76",
+      "persona": "sdlc/persona.edge-case-hunter",
+      "topic": "secrets on the command line",
+      "target": [
+        "src/cli/redact.ts",
+        "src/cli/run.ts",
+        "src/sftp/known-hosts.ts"
+      ],
+      "test": "test/adversarial/cli-typed-password-forms.test.ts",
+      "outcome": "refuted"
+    },
+    {
+      "id": "ATK-77",
+      "persona": "sdlc/persona.security",
+      "topic": "secrets on the command line",
+      "target": [
+        "src/cli/redact.ts"
+      ],
+      "test": "test/adversarial/cli-redaction-write-chunks.test.ts",
+      "outcome": "deferred",
+      "finding": "deferred: redactingOutput redacts each write() call on its own and only string chunks, so a URL password split across two write() calls or written as a Buffer passes unredacted (reproduce: the 'deferred ATK-77' case of test/adversarial/cli-redaction-write-chunks.test.ts pins it). It does not block: the same test shows every write of a real run (hints, the host-key prompt, back-end error lines) is one whole string line, so AC-19 holds. A future writer that streams a line in parts would bypass the one output point; the property to keep is that the output point sees whole lines."
     }
   ]
 }
