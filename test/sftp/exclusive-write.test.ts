@@ -31,6 +31,27 @@ describe('an exclusive write stream (FEATURE-2 design 6A)', () => {
     );
   });
 
+  // The open fails and the follow-up stat fails too: no file is there, so the open's own code
+  // stands rather than ALREADY_EXISTS.
+  it('keeps NOT_FOUND when the parent directory is missing', async () => {
+    const { fs } = await connectedPair();
+
+    const stream = fs.createWriteStream('/missing/new.bin', {
+      exclusive: true,
+    });
+    stream.end(Buffer.from('bytes'));
+    await expectStreamError(stream, 'NOT_FOUND', { path: '/missing/new.bin' });
+  });
+
+  it('keeps PERMISSION_DENIED when the server refuses the path', async () => {
+    const { fixture, fs } = await connectedPair();
+    fixture.deny('/secret');
+
+    const stream = fs.createWriteStream('/secret', { exclusive: true });
+    stream.end(Buffer.from('bytes'));
+    await expectStreamError(stream, 'PERMISSION_DENIED', { path: '/secret' });
+  });
+
   it('still replaces an existing file without the option', async () => {
     const { fixture, fs } = await connectedPair();
     await writeFile(fixture.local('/taken.bin'), 'earlier bytes');

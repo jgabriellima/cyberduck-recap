@@ -128,6 +128,27 @@ describe('cyberduck-recap put (FEATURE-2 AC-10 to AC-14)', () => {
     );
   });
 
+  it('AC-12: an exclusive open refused for another reason keeps its own exit code', async () => {
+    const server = await useCliServer();
+    const local = join(await tempDir(), 'x.bin');
+    await writeFile(local, 'local bytes');
+
+    const result = await cli(
+      [
+        'put',
+        '--known-hosts',
+        server.knownHostsPath,
+        local,
+        server.url('/missing/x.bin'),
+      ],
+      { env: server.env },
+    );
+
+    expect(result.code).toBe(16);
+    expect(errorLine(result)).toMatch(/^cyberduck-recap: NOT_FOUND: /);
+    expect(errorLine(result)).not.toContain('give --overwrite');
+  });
+
   // A file mode cannot deny root, and Windows has no POSIX modes: the spec skips that case there.
   const unreadableCases = isRoot || isWindows ? [] : (['unreadable'] as const);
 

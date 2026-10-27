@@ -805,6 +805,9 @@ implementer adds:
 - `test/sftp/streams.test.ts` (or the existing write-stream test): an exclusive open over an
   existing file fails with `ALREADY_EXISTS` and the file keeps its bytes, over the in-process
   server (its `OPEN` handler maps the flags with `flagsToString`, so `'wx'` gives `EEXIST`).
+  An exclusive open refused with `NO_SUCH_FILE` or `PERMISSION_DENIED`, whose follow-up `stat`
+  fails too, keeps its own code (`NOT_FOUND`, `PERMISSION_DENIED`); `test/cli/put.test.ts` checks
+  exit 16 for a missing remote directory.
 - `test/cli/get-final-step.test.ts`: the 4C and 4E paths with an injected `link`.
 - `test/cli/known-hosts-path.test.ts`: `EEXIST` on a directory that another caller created counts
   as success and keeps its mode (`known-hosts-path.ts` takes `chmod`, `lstat` and `mkdir` from one
