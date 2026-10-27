@@ -263,7 +263,9 @@ export async function startSftpServer(
       return buffer;
     };
     // A dropped connection leaves handles open; close them so no descriptor outlives the test.
+    let ended = false;
     const closeAll = (): void => {
+      ended = true;
       for (const state of handles.values()) {
         if (state.kind === 'file')
           void state.file.close().catch(() => undefined);
@@ -324,6 +326,12 @@ export async function startSftpServer(
       async (id, path: string, flags: number) => {
         const mode = utils.sftp.flagsToString(flags) ?? 'r';
         const file = await open(local(path), mode, 0o644);
+        // An OPEN whose file opens after the session ended has no CLOSE coming: close it here,
+        // or the descriptor is left to garbage collection (DEP0137).
+        if (ended) {
+          await file.close();
+          return;
+        }
         sftp.handle(id, newHandle({ kind: 'file', path, file }));
       },
     );
