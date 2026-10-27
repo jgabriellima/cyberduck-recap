@@ -12,22 +12,30 @@ export interface RemoteLocation {
   readonly path: string;
 }
 
+/** A URL scheme and its `:`, as the URL parser reads one at the start of the text. */
+const SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*:/;
+
 /**
- * The URL as the person typed it, for an error line, with the password replaced by `***`. A URL
- * that fails to parse may still hold a password, and an unencoded one may hold `/`, `?`, `#`, `:`
- * or `@`; so the user information runs from the `://` to the last `@` of the whole text, and the
- * text between its first `:` and that `@` is redacted. A path that holds `@` is over-redacted,
- * which costs only detail in an error line.
+ * The URL for an error line, with the password replaced by `***`. The redaction reads the text as
+ * the URL parser does: it first removes every ASCII TAB, LF and CR, and the leading and trailing
+ * C0 controls and spaces, so none of them can hide `://` or `@` from it. A URL that fails to parse
+ * may still hold a password, and an unencoded one may hold `/`, `?`, `#`, `:` or `@`; so the text
+ * from the first `:` after the scheme (from the start when there is no scheme) to the last `@` is
+ * redacted. Without `@` there is no user information and the text is shown as typed. A path that
+ * holds `@`, or a non-hierarchical URL, is over-redacted, which costs only detail in an error line.
  */
 function shownUrl(text: string): string {
-  const separator = text.indexOf('://');
-  if (separator < 0) return text;
-  const start = separator + 3;
-  const at = text.lastIndexOf('@');
-  if (at < start) return text;
-  const colon = text.indexOf(':', start);
+  const removed = text.replace(/[\t\n\r]/g, '');
+  let first = 0;
+  let end = removed.length;
+  while (first < end && removed.charCodeAt(first) <= 0x20) first += 1;
+  while (end > first && removed.charCodeAt(end - 1) <= 0x20) end -= 1;
+  const seen = removed.slice(first, end);
+  const at = seen.lastIndexOf('@');
+  if (at < 0) return text;
+  const colon = seen.indexOf(':', SCHEME.exec(seen)?.[0].length ?? 0);
   if (colon < 0 || colon > at) return text;
-  return `${text.slice(0, colon)}:***${text.slice(at)}`;
+  return `${seen.slice(0, colon)}:***${seen.slice(at)}`;
 }
 
 function decode(text: string, part: string): string {

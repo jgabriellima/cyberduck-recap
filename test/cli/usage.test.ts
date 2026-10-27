@@ -179,3 +179,32 @@ describe('usage, help and version (FEATURE-2 AC-17, AC-18)', () => {
     expect(mem.calls.connect).toBe(0);
   });
 });
+
+// The redaction of `invalid URL '<x>'` reads the text as the URL parser does (ATK-70).
+describe('the invalid URL line redacts the password as the parser reads it', () => {
+  it.each([
+    [
+      'a CR inside :// and a leading space',
+      ` mem:\r//u:${passwordSentinel}@h:65536/`,
+      "invalid URL 'mem://u:***@h:65536/'",
+    ],
+    [
+      'a TAB inside the scheme and a trailing control',
+      `m\tem://u:${passwordSentinel}@h:65536/\u0001`,
+      "invalid URL 'mem://u:***@h:65536/'",
+    ],
+    [
+      'no scheme: from the first : to the last @',
+      `1u:${passwordSentinel}@h`,
+      "invalid URL '1u:***@h'",
+    ],
+  ])('%s', async (_name, url, message) => {
+    const { mem, run } = memRun(['ls', url]);
+    const result = await run;
+
+    expect(result.code).toBe(2);
+    expect(result.stderrLines).toEqual([usage(message), USAGE_HINT]);
+    expect(mem.calls.connect).toBe(0);
+    expect(result.stderr).not.toContain(passwordSentinel);
+  });
+});
