@@ -4,7 +4,9 @@
       "id": "ATK-1",
       "persona": "sdlc/persona.security",
       "topic": "secrets on the command line",
-      "target": ["src/cli/"],
+      "target": [
+        "src/cli/"
+      ],
       "test": "test/adversarial/cli-secrets-on-command-line.test.ts",
       "outcome": "refuted",
       "aim": "A password in a URL that also fails to parse (invalid port, port 0, %zz, %00, unknown scheme, bad arg count), --password/-p values, identity files that hold text, a .pub key or a fake PEM block, a wrong passphrase, and an INTERNAL error built from the back-end target never reach stdout or stderr; the USAGE line 'invalid URL '<x>'' must not echo the userinfo."
@@ -13,7 +15,9 @@
       "id": "ATK-2",
       "persona": "sdlc/persona.malicious-user",
       "topic": "get destination path traversal",
-      "target": ["src/cli/"],
+      "target": [
+        "src/cli/"
+      ],
       "test": "test/adversarial/cli-get-destination-traversal.test.ts",
       "outcome": "refuted",
       "aim": "Percent-encoded slashes and dots (a%2F.., a%2F., a%2F, %2E%2E%2F%2E%2E) whose decoded basename is '..', '.' or empty exit 2 with no connection and write nothing in cwd or its parents; a hostile stat/list name cannot choose the local file name."
@@ -22,7 +26,9 @@
       "id": "ATK-3",
       "persona": "sdlc/persona.concurrency",
       "topic": "get destination race",
-      "target": ["src/cli/"],
+      "target": [
+        "src/cli/"
+      ],
       "test": "test/adversarial/cli-get-destination-race.test.ts",
       "outcome": "refuted",
       "aim": "A file or symbolic link that appears at the destination while the download runs is not replaced without --overwrite (the final rename must not clobber it) and no .part file stays; with --overwrite a link swapped in is replaced itself and its target keeps its bytes."
@@ -31,7 +37,9 @@
       "id": "ATK-4",
       "persona": "sdlc/persona.integration-failure",
       "topic": "partial download failure",
-      "target": ["src/cli/"],
+      "target": [
+        "src/cli/"
+      ],
       "test": "test/adversarial/cli-get-partial-failure.test.ts",
       "outcome": "refuted",
       "aim": "A stream that fails after 64 KiB (typed and untyped error), a createReadStream that throws, a stream that fails before any byte, a failing disconnect after the failure, and a read-only destination directory each leave the destination as it was, no temporary file, exactly one error line with the right exit code, and one disconnect."
@@ -40,7 +48,9 @@
       "id": "ATK-5",
       "persona": "sdlc/persona.careless-user",
       "topic": "terminal prompts and raw mode",
-      "target": ["src/cli/"],
+      "target": [
+        "src/cli/"
+      ],
       "test": "test/adversarial/cli-terminal-prompts.test.ts",
       "outcome": "refuted",
       "aim": "Raw mode is switched off when stdin errors or ends inside a UTF-8 character at the password prompt; bytes after Ctrl-C are ignored; a password split across chunks (inside a character) authenticates; a CR and its LF split across the password and host-key prompts are one line end; lines typed after 'yes' are never recorded in known_hosts; a URL host with an encoded LF, a comma, an encoded space or a wildcard is refused before any prompt or connection."
@@ -49,7 +59,10 @@
       "id": "ATK-6",
       "persona": "sdlc/persona.edge-case-hunter",
       "topic": "hostile server text",
-      "target": ["src/cli/", "src/sftp/sanitize.ts"],
+      "target": [
+        "src/cli/",
+        "src/sftp/sanitize.ts"
+      ],
       "test": "test/adversarial/cli-hostile-server-text.test.ts",
       "outcome": "refuted",
       "aim": "Through the real SFTP back-end: entry names with LF, CR, TAB, ESC, OSC, U+202E, U+0085, U+2028, U+2066/U+2069, DEL, a forged error line and a forged ls line each print as one escaped line with exactly 3 TABs; a hostile status text cannot forge a stderr line on ls or get; entries with an invalid time or a NaN, negative or huge size are not an INTERNAL defect (exit 1)."
@@ -58,7 +71,11 @@
       "id": "ATK-7",
       "persona": "sdlc/persona.integration-failure",
       "topic": "malformed reply part names",
-      "target": ["src/cli/", "src/sftp/error-map.ts", "src/sftp/connection.ts"],
+      "target": [
+        "src/cli/",
+        "src/sftp/error-map.ts",
+        "src/sftp/connection.ts"
+      ],
       "test": "test/adversarial/cli-malformed-replies.test.ts",
       "outcome": "refuted",
       "aim": "A hostile SFTP server answers OPENDIR or READDIR (ls), OPEN or READ (get), STAT/LSTAT/FSTAT or OPEN (put) with a bare OK that lacks the handle, entries, attributes or data. Each exits 22 with one escaped OPERATION_FAILED line that names the missing part; never INTERNAL exit 1, a hang, a second line, a leftover local file, or a remote write after a stat it could not read."
@@ -67,7 +84,10 @@
       "id": "ATK-8",
       "persona": "sdlc/persona.edge-case-hunter",
       "topic": "stream chunk size documentation",
-      "target": ["src/sftp/streams.ts", "src/cli/"],
+      "target": [
+        "src/sftp/streams.ts",
+        "src/cli/"
+      ],
       "test": "test/adversarial/cli-stream-chunk-boundary.test.ts",
       "outcome": "refuted",
       "aim": "get and put of CHUNK_SIZE-1, CHUNK_SIZE, CHUNK_SIZE+1, 2*CHUNK_SIZE, 32 KiB-1/32 KiB/32 KiB+1, WINDOW*CHUNK_SIZE and +1 bytes are byte-identical; a server that returns half, one byte less, or 1 KiB more than each READ asks gives a byte-identical file or one exit-22 line and no file; the CHUNK_SIZE doc comment's limits hold for the constant and the WINDOW comment's bytes in flight equal WINDOW*CHUNK_SIZE."
@@ -76,7 +96,11 @@
       "id": "ATK-32",
       "persona": "sdlc/persona.integration-failure",
       "topic": "server status text sanitisation",
-      "target": ["src/sftp/sanitize.ts", "src/sftp/error-map.ts", "src/text/escape.ts"],
+      "target": [
+        "src/sftp/sanitize.ts",
+        "src/sftp/error-map.ts",
+        "src/text/escape.ts"
+      ],
       "test": "test/adversarial/sanitize-format-characters.test.ts",
       "outcome": "refuted",
       "replay": true
@@ -85,7 +109,10 @@
       "id": "ATK-39",
       "persona": "sdlc/persona.malicious-user",
       "topic": "server status text sanitisation",
-      "target": ["src/sftp/sanitize.ts", "src/sftp/error-map.ts"],
+      "target": [
+        "src/sftp/sanitize.ts",
+        "src/sftp/error-map.ts"
+      ],
       "test": "test/adversarial/sanitize-text-coercion.test.ts",
       "outcome": "refuted",
       "replay": true
@@ -94,7 +121,10 @@
       "id": "ATK-40",
       "persona": "sdlc/persona.integration-failure",
       "topic": "server status text sanitisation",
-      "target": ["src/sftp/sanitize.ts", "src/sftp/error-map.ts"],
+      "target": [
+        "src/sftp/sanitize.ts",
+        "src/sftp/error-map.ts"
+      ],
       "test": "test/adversarial/sanitize-text-coercion.test.ts",
       "outcome": "refuted",
       "replay": true
@@ -103,7 +133,10 @@
       "id": "ATK-46",
       "persona": "sdlc/persona.integration-failure",
       "topic": "malformed server replies",
-      "target": ["src/sftp/error-map.ts", "src/sftp/session.ts"],
+      "target": [
+        "src/sftp/error-map.ts",
+        "src/sftp/session.ts"
+      ],
       "test": "test/adversarial/error-map-hostile-reads.test.ts",
       "outcome": "refuted",
       "replay": true
@@ -112,7 +145,10 @@
       "id": "ATK-53",
       "persona": "sdlc/persona.malicious-user",
       "topic": "server status text sanitisation",
-      "target": ["src/sftp/session.ts", "src/sftp/error-map.ts"],
+      "target": [
+        "src/sftp/session.ts",
+        "src/sftp/error-map.ts"
+      ],
       "test": "test/adversarial/session-guarded-reads.test.ts",
       "outcome": "refuted",
       "replay": true
@@ -121,7 +157,10 @@
       "id": "ATK-54",
       "persona": "sdlc/persona.malicious-user",
       "topic": "malformed server replies",
-      "target": ["src/sftp/session.ts", "src/sftp/error-map.ts"],
+      "target": [
+        "src/sftp/session.ts",
+        "src/sftp/error-map.ts"
+      ],
       "test": "test/adversarial/session-guarded-reads.test.ts",
       "outcome": "refuted",
       "replay": true
@@ -130,7 +169,10 @@
       "id": "ATK-55",
       "persona": "sdlc/persona.integration-failure",
       "topic": "stream teardown",
-      "target": ["src/sftp/streams.ts", "src/sftp/session.ts"],
+      "target": [
+        "src/sftp/streams.ts",
+        "src/sftp/session.ts"
+      ],
       "test": "test/adversarial/session-guarded-reads.test.ts",
       "outcome": "refuted",
       "replay": true
@@ -139,7 +181,11 @@
       "id": "ATK-62",
       "persona": "sdlc/persona.integration-failure",
       "topic": "stream teardown",
-      "target": ["src/sftp/streams.ts", "src/sftp/session.ts", "src/sftp/error-map.ts"],
+      "target": [
+        "src/sftp/streams.ts",
+        "src/sftp/session.ts",
+        "src/sftp/error-map.ts"
+      ],
       "test": "test/adversarial/copyof-and-catch-all.test.ts",
       "outcome": "refuted",
       "replay": true
@@ -148,7 +194,10 @@
       "id": "ATK-11",
       "persona": "sdlc/persona.integration-failure",
       "topic": "malformed server replies",
-      "target": ["src/sftp/session.ts", "src/sftp/streams.ts"],
+      "target": [
+        "src/sftp/session.ts",
+        "src/sftp/streams.ts"
+      ],
       "test": "test/adversarial/hostile-sftp-replies.test.ts",
       "outcome": "refuted",
       "replay": true
@@ -157,7 +206,11 @@
       "id": "ATK-20",
       "persona": "sdlc/persona.careless-user",
       "topic": "session lifecycle",
-      "target": ["src/sftp/sftp-file-system.ts", "src/sftp/session.ts", "src/sftp/streams.ts"],
+      "target": [
+        "src/sftp/sftp-file-system.ts",
+        "src/sftp/session.ts",
+        "src/sftp/streams.ts"
+      ],
       "test": "test/adversarial/stream-integrity.test.ts",
       "outcome": "refuted",
       "replay": true
@@ -166,19 +219,48 @@
       "id": "ATK-68",
       "persona": "sdlc/persona.security",
       "topic": "secrets on the command line",
-      "target": ["src/cli/url.ts"],
+      "target": [
+        "src/cli/url.ts"
+      ],
       "test": "test/adversarial/cli-url-password-redaction.test.ts",
-      "outcome": "exposed",
-      "finding": "blocker: shownUrl in src/cli/url.ts finds the user information inside the authority, which its regex ends at the first '/', '?' or '#'. A password that holds one of these characters (typed unencoded) makes new URL() throw and leaves no '@' in the cut authority, so the USAGE line 'invalid URL '<x>'' echoes the whole URL with the password. Examples: 'mem://u:<secret>#x@h/', 'mem://u:a#<secret>@h/', 'mem://u:a?<secret>@h/', 'mem://u:a/<secret>@h:65536/' each write the secret to stderr (exit 2). This breaks the spec's 'Must never allow: a password ... in stderr, for any outcome (AC-19)' and the intent of the shownUrl doc comment. Failing test: test/adversarial/cli-url-password-redaction.test.ts (4 cases)."
+      "outcome": "refuted"
     },
     {
       "id": "ATK-69",
       "persona": "sdlc/persona.integration-failure",
       "topic": "session lifecycle",
-      "target": ["src/cli/run.ts", "src/cli/commands/get.ts", "src/cli/commands/put.ts", "src/sftp/session.ts", "src/sftp/streams.ts"],
+      "target": [
+        "src/cli/run.ts",
+        "src/cli/commands/get.ts",
+        "src/cli/commands/put.ts",
+        "src/sftp/session.ts",
+        "src/sftp/streams.ts"
+      ],
       "test": "test/adversarial/cli-session-ends-mid-transfer.test.ts",
       "outcome": "refuted",
       "aim": "Through the real SFTP back-end, the transport closes before OPEN gets its reply or in the middle of the READ/WRITE window, or the SFTP channel alone ends mid-READ: get and put each exit 14 with exactly one CONNECTION_LOST error line, no AggregateError or stack, no hang, and get leaves no temporary file (cyberduck/standard.session-ending-settles-once)."
+    },
+    {
+      "id": "ATK-70",
+      "persona": "sdlc/persona.security",
+      "topic": "secrets on the command line",
+      "target": [
+        "src/cli/url.ts"
+      ],
+      "test": "test/adversarial/cli-url-password-redaction.test.ts",
+      "outcome": "exposed",
+      "finding": "blocker: shownUrl in src/cli/url.ts looks for '://' in the raw text, but new URL() first removes every ASCII TAB and newline (WHATWG URL). A TAB or newline inside '://' ('mem:/<TAB>/u:a#<secret>@h/', 'mem:<LF>//u:a?<secret>@h/') still fails to parse, shownUrl finds no '://' and returns the whole text, so the USAGE line 'invalid URL '<x>'' writes the password to stderr (exit 2). This breaks the spec's 'Must never allow: a password ... in stderr, for any outcome' (AC-19). Failing test: test/adversarial/cli-url-password-redaction.test.ts > ATK-70 (2 cases)."
+    },
+    {
+      "id": "ATK-71",
+      "persona": "sdlc/persona.careless-user",
+      "topic": "secrets on the command line",
+      "target": [
+        "src/cli/url.ts"
+      ],
+      "test": "test/adversarial/cli-url-password-redaction.test.ts",
+      "outcome": "deferred",
+      "finding": "deferred: an unencoded password whose text before its first '/' is all digits ('mem://u:1/<secret>@h/') is a valid URL: host 'u', port 1, path '/<secret>@h/', no password. The CLI connects and its NOT_FOUND line (exit 16) names the path with the secret. No criterion or standard applies, because the URL holds no password and the CLI cannot tell this text from a real path; a heuristic (':' digits '/' ... '@') could refuse it. Test skipped with this finding."
     }
   ]
 }
