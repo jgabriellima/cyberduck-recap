@@ -16,11 +16,28 @@ export const REMOTE_FS_ERROR_CODES = [
 
 export type RemoteFsErrorCode = (typeof REMOTE_FS_ERROR_CODES)[number];
 
+/**
+ * Why a credential gave no usable key, in words no protocol owns, so a caller can explain the
+ * failure without parsing a message. A closed list: a new reason is added on purpose, with a test.
+ */
+export const REMOTE_FS_ERROR_REASONS = [
+  // An encrypted private key and no passphrase.
+  'PRIVATE_KEY_ENCRYPTED',
+  // An encrypted private key that the given passphrase does not decrypt.
+  'PRIVATE_KEY_PASSPHRASE_WRONG',
+  // Not a private key at all: a public key or other text.
+  'PRIVATE_KEY_INVALID',
+] as const;
+
+export type RemoteFsErrorReason = (typeof REMOTE_FS_ERROR_REASONS)[number];
+
 export interface RemoteFsErrorDetails {
   readonly path?: string;
   readonly targetPath?: string;
   readonly expectedFingerprints?: readonly string[];
   readonly presentedFingerprint?: string;
+  /** Set only on AUTH_FAILED for a private key that gave no usable key. */
+  readonly reason?: RemoteFsErrorReason;
   /** Back-ends pass only a sanitised cause, never a protocol library's own error object. */
   readonly cause?: Error;
 }
@@ -33,6 +50,7 @@ export class RemoteFsError extends Error {
   declare readonly targetPath?: string;
   declare readonly expectedFingerprints?: readonly string[];
   declare readonly presentedFingerprint?: string;
+  declare readonly reason?: RemoteFsErrorReason;
 
   constructor(
     code: RemoteFsErrorCode,
@@ -50,6 +68,7 @@ export class RemoteFsError extends Error {
       targetPath: details.targetPath,
       expectedFingerprints: details.expectedFingerprints,
       presentedFingerprint: details.presentedFingerprint,
+      reason: details.reason,
     };
     for (const [key, value] of Object.entries(optional)) {
       if (value !== undefined) {
@@ -65,4 +84,13 @@ export class RemoteFsError extends Error {
 
 export function isRemoteFsError(value: unknown): value is RemoteFsError {
   return value instanceof RemoteFsError;
+}
+
+/**
+ * The `code` of a Node.js system error (`ENOENT`, `EEXIST`…), read without trusting the shape of
+ * the value: the one reading of it for the CLI and every back-end. Internal: not in the index.
+ */
+export function errnoOf(error: unknown): string | undefined {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === 'string' ? code : undefined;
 }

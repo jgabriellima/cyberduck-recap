@@ -29,7 +29,12 @@ export interface SftpDirEntry {
  * Buffer, so the two stay distinguishable (G-5).
  */
 export interface SftpChannel {
-  open(path: string, mode: 'r' | 'w', callback: SftpCallback<Buffer>): void;
+  /** `wx` adds SSH_FXF_EXCL: the server refuses a path that exists, in the same step as the open. */
+  open(
+    path: string,
+    mode: 'r' | 'w' | 'wx',
+    callback: SftpCallback<Buffer>,
+  ): void;
   close(handle: Buffer, callback: SftpCallback<void>): void;
   read(
     handle: Buffer,

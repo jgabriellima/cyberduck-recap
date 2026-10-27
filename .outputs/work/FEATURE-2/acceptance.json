@@ -1,0 +1,256 @@
+{
+ "criteria": [
+  {
+   "id": "AC-1",
+   "verified_by": "test/cli/ls.test.ts > lists a directory one entry per line in name order",
+   "test": "test/cli/ls.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-2",
+   "verified_by": "test/cli/ls.test.ts > lists an empty directory as no lines",
+   "test": "test/cli/ls.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-3",
+   "verified_by": "test/cli/url.test.ts > maps the URL path to the remote path",
+   "test": "test/cli/url.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-4",
+   "verified_by": "test/cli/url.test.ts > passes host and port from the URL to the back-end",
+   "test": "test/cli/url.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-5",
+   "verified_by": "test/cli/get.test.ts > downloads byte-identical content",
+   "test": "test/cli/get.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-6",
+   "verified_by": "test/cli/get.test.ts > chooses the local destination; refuses a destination in a missing directory",
+   "test": "test/cli/get.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-7",
+   "verified_by": "test/cli/get.test.ts > refuses a remote path without a usable basename",
+   "test": "test/cli/get.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-8",
+   "verified_by": "test/cli/get.test.ts > refuses to replace a local file without --overwrite; replaces a local file with --overwrite",
+   "test": "test/cli/get.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-9",
+   "verified_by": "test/cli/get.test.ts > leaves the destination unchanged when the download fails",
+   "test": "test/cli/get.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-10",
+   "verified_by": "test/cli/put.test.ts > uploads byte-identical content",
+   "test": "test/cli/put.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-11",
+   "verified_by": "test/cli/put.test.ts > chooses the remote destination",
+   "test": "test/cli/put.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-12",
+   "verified_by": "test/cli/put.test.ts > refuses to replace a remote file without --overwrite; replaces a remote file with --overwrite",
+   "test": "test/cli/put.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-13",
+   "verified_by": "test/cli/put.test.ts > refuses a local file it cannot read",
+   "test": "test/cli/put.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-14",
+   "verified_by": "test/cli/put.test.ts > warns that an interrupted upload may leave a partial remote file",
+   "test": "test/cli/put.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-15",
+   "verified_by": "test/cli/exit-codes.test.ts > maps every RemoteFsError code to its exit code and error line",
+   "test": "test/cli/exit-codes.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-16",
+   "verified_by": "test/cli/exit-codes.test.ts > reports the server's failures with their exit codes",
+   "test": "test/cli/exit-codes.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-17",
+   "verified_by": "test/cli/usage.test.ts > refuses a wrong command line",
+   "test": "test/cli/usage.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-18",
+   "verified_by": "test/cli/usage.test.ts > prints help; prints help wherever --help is; prints the version",
+   "test": "test/cli/usage.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-19",
+   "verified_by": "test/cli/credentials.test.ts > refuses a password on the command line without echoing it; treats an empty URL password as no password",
+   "test": "test/cli/credentials.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-20",
+   "verified_by": "test/cli/credentials.test.ts > takes the credential from the first source that applies; uses only the first source; refuses to run without a credential; refuses an sftp URL without a user name before the prompt",
+   "test": "test/cli/credentials.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-21",
+   "verified_by": "test/cli/credentials.test.ts > reports an unreadable identity file",
+   "test": "test/cli/credentials.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-22",
+   "verified_by": "test/cli/password-prompt.test.ts > prompts for the password without echo",
+   "test": "test/cli/password-prompt.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-23",
+   "verified_by": "test/cli/no-secret-leak.test.ts > never writes a secret to stdout or stderr",
+   "test": "test/cli/no-secret-leak.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-24",
+   "verified_by": "test/cli/host-key.test.ts > asks the person to confirm an unknown host key; starts the new known_hosts line on its own line",
+   "test": "test/cli/host-key.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-25",
+   "verified_by": "test/cli/host-key.test.ts > refuses an unknown host key without a terminal",
+   "test": "test/cli/host-key.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-26",
+   "verified_by": "test/cli/host-key.test.ts > refuses a changed host key and never asks",
+   "test": "test/cli/host-key.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-27",
+   "verified_by": "test/cli/host-key.test.ts > chooses the known_hosts file; creates missing directories with mode 0700",
+   "test": "test/cli/host-key.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-28",
+   "verified_by": "test/cli/escape.test.ts > escapes entry names in ls output; does not truncate a long name",
+   "test": "test/cli/escape.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-29",
+   "verified_by": "test/cli/escape.test.ts > escapes server and URL text in stderr",
+   "test": "test/cli/escape.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-30",
+   "verified_by": "test/cli/boundary.test.ts > src/cli and src/sftp escape text through one function",
+   "test": "test/cli/boundary.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-31",
+   "verified_by": "test/cli/boundary.test.ts > src/cli imports no protocol library and no back-end; src/cli names no back-end",
+   "test": "test/cli/boundary.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-32",
+   "verified_by": "test/cli/registry.test.ts > a back-end registered outside src/cli works through ls, get and put",
+   "test": "test/cli/registry.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-33",
+   "verified_by": "test/cli/lifecycle.test.ts > disconnects once after every command; ignores a disconnect failure after success; does not disconnect when connect rejects",
+   "test": "test/cli/lifecycle.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-34",
+   "verified_by": "test/cli/lifecycle.test.ts > reports an unexpected error without a stack trace",
+   "test": "test/cli/lifecycle.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-35",
+   "verified_by": "test/cli/bin.test.ts > the bin entry, once built, prints the help (pnpm run build && node <bin> --help)",
+   "test": "test/cli/bin.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-36",
+   "verified_by": "test/cli/password-prompt.test.ts > reads the password in raw mode",
+   "test": "test/cli/password-prompt.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-37",
+   "verified_by": "test/cli/password-prompt.test.ts > asks for the password before the host key",
+   "test": "test/cli/password-prompt.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-38",
+   "verified_by": "test/cli/credentials.test.ts > explains an identity file that gives no key",
+   "test": "test/cli/credentials.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-39",
+   "verified_by": "test/cli/host-key.test.ts > records the first host key in a new known_hosts file; creates no known_hosts file when the key is refused",
+   "test": "test/cli/host-key.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-40",
+   "verified_by": "test/cli/host-key.test.ts > reports a known_hosts location it cannot write; reports a known_hosts file it cannot read",
+   "test": "test/cli/host-key.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-41",
+   "verified_by": "test/cli/get.test.ts > writes the download to a private temporary file; gives the downloaded file the default mode; keeps the mode of an overwritten file",
+   "test": "test/cli/get.test.ts",
+   "outcome": "pending"
+  },
+  {
+   "id": "AC-42",
+   "verified_by": "test/cli/get.test.ts > replaces a symbolic link, not its target, with --overwrite",
+   "test": "test/cli/get.test.ts",
+   "outcome": "pending"
+  }
+ ]
+}

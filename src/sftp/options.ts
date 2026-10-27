@@ -1,14 +1,10 @@
 import { isIPv4, isIPv6 } from 'node:net';
+import type { HostKeyInfo } from '../fs/backend.js';
 import { RemoteFsError } from '../fs/errors.js';
 
-/** What `confirmHostKey` is shown for an unknown host key. */
-export interface HostKeyInfo {
-  readonly host: string;
-  readonly port: number;
-  readonly keyType: string;
-  /** `SHA256:` followed by the unpadded base64 SHA-256 of the key blob, as OpenSSH prints it. */
-  readonly fingerprint: string;
-}
+// The protocol-neutral contract (src/fs/backend.ts) owns the shape; re-exported so the SFTP
+// options keep their public name.
+export type { HostKeyInfo };
 
 export interface SftpFileSystemOptions {
   readonly host: string;
@@ -41,7 +37,7 @@ export interface ValidatedOptions {
   readonly connectTimeoutMs: number;
 }
 
-const DEFAULT_PORT = 22;
+export const DEFAULT_PORT = 22;
 const DEFAULT_CONNECT_TIMEOUT_MS = 20_000;
 
 // A closed set: an option such as `hostVerifier` or `strictHostKeyChecking` must never be able to
@@ -87,21 +83,17 @@ function isSecretValue(value: unknown): value is string | Buffer {
   return typeof value === 'string' || Buffer.isBuffer(value);
 }
 
-export function validateOptions(input: unknown): ValidatedOptions {
-  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
-    throw invalid('options', 'must be an object');
-  }
-  const options = input as Record<string, unknown>;
-  for (const key of Object.keys(options)) {
-    if (!KNOWN_OPTIONS.has(key)) {
-      throw new RemoteFsError(
-        'INVALID_ARGUMENT',
-        `unknown option "${key}": host-key verification and credentials are configured only through the documented options`,
-      );
-    }
-  }
-
-  const { host, username, knownHostsPath } = options;
+/**
+ * The host, user name and port checks of `validateOptions`, in its order and with its messages, for
+ * a caller that has an endpoint before it has a credential (the CLI checks a URL before it asks
+ * for a password). One source, so the two can never report a different message.
+ */
+export function validateEndpoint(options: Record<string, unknown>): {
+  readonly host: string;
+  readonly port: number;
+  readonly username: string;
+} {
+  const { host, username } = options;
   if (!isNonEmptyString(host))
     throw invalid('host', 'must be a non-empty string');
   if (!isValidHost(host)) {
@@ -120,6 +112,25 @@ export function validateOptions(input: unknown): ValidatedOptions {
   ) {
     throw invalid('port', 'must be an integer from 1 to 65535');
   }
+  return { host, port, username };
+}
+
+export function validateOptions(input: unknown): ValidatedOptions {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    throw invalid('options', 'must be an object');
+  }
+  const options = input as Record<string, unknown>;
+  for (const key of Object.keys(options)) {
+    if (!KNOWN_OPTIONS.has(key)) {
+      throw new RemoteFsError(
+        'INVALID_ARGUMENT',
+        `unknown option "${key}": host-key verification and credentials are configured only through the documented options`,
+      );
+    }
+  }
+
+  const { host, port, username } = validateEndpoint(options);
+  const { knownHostsPath } = options;
 
   const credentials = validateCredentials(options);
 

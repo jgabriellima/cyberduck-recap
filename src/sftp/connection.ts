@@ -9,7 +9,7 @@ import type {
   ServerHostKeyAlgorithm,
   Stats,
 } from 'ssh2';
-import { RemoteFsError } from '../fs/errors.js';
+import { RemoteFsError, type RemoteFsErrorReason } from '../fs/errors.js';
 import { serverHostKeyAlgorithms } from './algorithms.js';
 import {
   MalformedReplyError,
@@ -76,42 +76,65 @@ class PausableTimer {
   }
 }
 
-function authFailed(
+/** The AUTH_FAILED error of the back-end; one source for its message. */
+export function authFailed(
   username: string,
   host: string,
   port: number,
   why: string,
+  reason?: RemoteFsErrorReason,
 ): RemoteFsError {
   return new RemoteFsError(
     'AUTH_FAILED',
     `authentication of user "${username}" on ${host}:${port} failed: ${why}`,
+    reason === undefined ? {} : { reason },
   );
 }
 
 /**
+ * Parses a private key and, when it gives no usable key, tells why with a typed reason: only a
+ * real decrypt tells a wrong passphrase from a key that is not encrypted, so callers branch on the
+ * reason and never on ssh2's text. No cause is attached: it could quote key material.
+ */
+export function parsePrivateKeyOrFail(
+  privateKey: string | Buffer,
+  passphrase: string | Buffer | undefined,
+  fail: (why: string, reason: RemoteFsErrorReason) => RemoteFsError,
+): ParsedKey {
+  const parsed = utils.parseKey(privateKey, passphrase);
+  if (!(parsed instanceof Error) && parsed.isPrivateKey()) return parsed;
+  const withoutPassphrase =
+    passphrase === undefined ? parsed : utils.parseKey(privateKey);
+  const encrypted =
+    withoutPassphrase instanceof Error &&
+    /encrypted/i.test(withoutPassphrase.message);
+  if (encrypted && passphrase === undefined) {
+    throw fail(
+      'the private key is encrypted and no passphrase was given',
+      'PRIVATE_KEY_ENCRYPTED',
+    );
+  }
+  if (encrypted) {
+    throw fail(
+      'the private key could not be decrypted with the given passphrase',
+      'PRIVATE_KEY_PASSPHRASE_WRONG',
+    );
+  }
+  throw fail('the private key could not be parsed', 'PRIVATE_KEY_INVALID');
+}
+
+/**
  * Step 3: the key is parsed before any I/O, so a wrong value (a file path instead of the key) or a
- * wrong passphrase fails without a connection. No cause is attached: it could quote key material.
+ * wrong passphrase fails without a connection, with the reason of `parsePrivateKeyOrFail`.
  */
 function parsePrivateKey(options: ValidatedOptions): ParsedKey | undefined {
   const { credentials, username, host, port } = options;
   if (credentials.kind !== 'privateKey') return undefined;
-  const parsed = utils.parseKey(credentials.privateKey, credentials.passphrase);
-  if (!(parsed instanceof Error) && parsed.isPrivateKey()) return parsed;
-  if (credentials.passphrase !== undefined) {
-    const withoutPassphrase = utils.parseKey(credentials.privateKey);
-    const encrypted =
-      withoutPassphrase instanceof Error &&
-      /encrypted/i.test(withoutPassphrase.message);
-    if (encrypted) {
-      throw authFailed(
-        username,
-        host,
-        port,
-        'the private key could not be decrypted with the given passphrase',
-      );
-    }
-  }
-  throw authFailed(username, host, port, 'the private key could not be parsed');
+  return parsePrivateKeyOrFail(
+    credentials.privateKey,
+    credentials.passphrase,
+    (why, reason) => authFailed(username, host, port, why, reason),
+  );
 }
 
 type Reply<T> = (error: Error | undefined, value?: T) => void;
