@@ -1,0 +1,29 @@
+apiVersion: sdlc/v1
+kind: Standard
+metadata:
+  id: cyberduck/standard.verified-transport-everywhere
+  version: 1.0.0
+  summary: Every connection the client opens, also inside a library, uses the back-end's one verified transport
+  description: >
+    Learned in FEATURE-3. The S3 client's own requests used the verified agent of src/s3/tls.ts,
+    but chainCredentials in src/s3/sdk.ts called fromNodeProviderChain with no clientConfig. The
+    inner STS and SSO clients of the SDK used its default handler: they accepted an http:
+    AWS_ENDPOINT_URL_STS, followed NODE_TLS_REJECT_UNAUTHORIZED=0 and ignored ca and
+    AWS_CA_BUNDLE. The code review (sdlc/gate.code-review, persona security, major) saw the web
+    identity token reach a plain-HTTP listener in 3 requests, and the fix covered clientConfig
+    only. ATK-92 (test/adversarial/s3-credential-chain-profile-sources.test.ts) then found the
+    same leak for a profile source, because the SDK keeps only parentClientConfig there. The
+    review and the attacks sent the work back twice for one cause. Insights: persona security
+    gave 13 blocking findings over 3 runs. The fix is CheckedHttpHandler in src/s3/sdk.ts, passed
+    as clientConfig and parentClientConfig, and test/adversarial/s3-credential-chain-tls.test.ts
+    covers each source.
+    Enforcement: judged, with no gate. The back-end's adversarial tests prove it per source; no
+    tool of the toolchain finds a client that a library creates internally.
+spec:
+  category: security
+  statement: >-
+    Every connection a back-end opens, also one that a library opens internally (a credential
+    chain, a token refresh, a redirect), uses the back-end's one verified transport: TLS verified
+    against the trusted authorities the user configured, a plain or unverified endpoint refused
+    before a socket opens. An adversarial test covers each such source.
+  applies_to: { kinds: [feature, bug, refinement, incident] }
