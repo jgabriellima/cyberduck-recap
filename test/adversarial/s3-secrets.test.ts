@@ -177,7 +177,9 @@ describe('No secret leaves the S3 back-end (AC-35)', () => {
       const secrets = [keys.secretAccessKey, keys.sessionToken];
 
       const fs = await setup.connected(overrides);
-      setup.server.fault(() => echoing('AccessDenied', keys));
+      const removeDenied = setup.server.fault(() =>
+        echoing('AccessDenied', keys),
+      );
       const errors = await failEveryOperation(fs);
       expect(errors).toHaveLength(7);
       for (const error of errors) {
@@ -186,6 +188,9 @@ describe('No secret leaves the S3 back-end (AC-35)', () => {
       }
 
       // A probe refused with an echo of the secrets: the AUTH_FAILED path leaks nothing either.
+      // The denying rule goes first: fault rules run in the order added, and the probe of an
+      // AccessDenied reply resolves (AC-22).
+      removeDenied();
       const refused = await setup.s3(overrides);
       setup.server.fault(() => echoing('InvalidAccessKeyId', keys));
       const authError = await rejection(refused.connect(), 'AUTH_FAILED');
