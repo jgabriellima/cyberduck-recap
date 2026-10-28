@@ -848,6 +848,21 @@ export async function startS3Server(
     });
   }
 
+  // The listener of the event that did not come is removed: a reply that waits for `drain` many
+  // times would otherwise keep one `close` and one `error` listener per wait on the response.
+  async function drainOrClose(res: ServerResponse): Promise<void> {
+    const controller = new AbortController();
+    const { signal } = controller;
+    try {
+      await Promise.race([
+        once(res, 'drain', { signal }),
+        once(res, 'close', { signal }),
+      ]);
+    } finally {
+      controller.abort();
+    }
+  }
+
   async function writeChunks(
     res: ServerResponse,
     request: RecordedRequest,
@@ -860,9 +875,7 @@ export async function startS3Server(
       const ok = res.write(body.subarray(offset, end));
       request.responseBytesSent = end;
       offset = end;
-      if (!ok) {
-        await Promise.race([once(res, 'drain'), once(res, 'close')]);
-      }
+      if (!ok) await drainOrClose(res);
     }
   }
 

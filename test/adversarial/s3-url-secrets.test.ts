@@ -39,7 +39,7 @@ describe('ATK-84: an s3 URL with a password on the command line', () => {
     ['get', (url: string) => ['get', url, 'out.bin']],
     ['put', (url: string) => ['put', 'in.bin', url]],
   ] as const)(
-    '%s: exit 21, the password is on no line, no request',
+    '%s: exit 2 (USAGE), the password is on no line, no request',
     async (_command, args) => {
       const setup = await useS3();
       const variables = await cliVariables(setup);
@@ -54,7 +54,9 @@ describe('ATK-84: an s3 URL with a password on the command line', () => {
         home: setup.env.home,
       });
 
-      expect(result.code).toBe(21);
+      // The CLI refuses every URL password as USAGE before it resolves the back-end, and AC-3
+      // keeps src/cli unchanged, so the s3 URL gets the same exit code as an sftp URL.
+      expect(result.code).toBe(2);
       expect(result.stdout).not.toContain(secret);
       expect(result.stderr).not.toContain(secret);
       expect(setup.server.requests).toHaveLength(0);
