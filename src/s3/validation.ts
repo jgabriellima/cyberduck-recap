@@ -19,7 +19,10 @@ export type EndpointProblem =
   | 'must not have a query or a fragment'
   | 'must not have a path';
 
-/** `undefined` when `value` is an `https:` URL with no user information, query, fragment or path. */
+/**
+ * `undefined` when `value` is an `https:` URL with no user information, query, fragment or
+ * path.
+ */
 export function endpointProblem(value: string): EndpointProblem | undefined {
   let url: URL;
   try {

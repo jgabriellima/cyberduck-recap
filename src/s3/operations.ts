@@ -151,7 +151,10 @@ export function probeError(
   }
 }
 
-/** The one request of connect(): ListBuckets account-wide, ListObjectsV2 of one key bucket-scoped. */
+/**
+ * The one request of connect(): ListBuckets account-wide, ListObjectsV2 of one key
+ * bucket-scoped.
+ */
 export async function sendProbe(
   context: S3Context,
   signal: AbortSignal,

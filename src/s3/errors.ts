@@ -2,8 +2,9 @@
  * The one output point of the S3 back-end (design Option 6A): every RemoteFsError that `src/s3/`
  * makes is built by `S3Errors.fail`, which receives the whole message and redacts every known
  * secret in it. Server text enters a message only through `serverText`, an S3 code only through
- * `codeText`. The tables more than one module needs (the code map, the AUTH_FAILED codes, the
- * permissions, the remedies) are here only (cyberduck/standard.single-source).
+ * `replyCode` (checked against `S3_CODE`), a Node error code only through `errnoText`. The
+ * tables more than one module needs (the code map, the AUTH_FAILED codes, the permissions, the
+ * remedies) are here only (cyberduck/standard.single-source).
  */
 import {
   RemoteFsError,
@@ -55,6 +56,7 @@ const CODE_OF_STATUS: Readonly<Record<number, string>> = {
 };
 
 const S3_CODE = /^[A-Za-z0-9.]{1,64}$/;
+const ERRNO = /^[A-Z0-9_]+$/;
 const SERVER_TEXT_LIMIT = 500;
 
 export type Action =
@@ -331,7 +333,7 @@ export class S3Errors {
       case 'no-reply':
         return failure.timeout
           ? `the store sent nothing for ${this.context.timeoutMs} ms`
-          : `the connection was lost${failure.errno !== undefined && /^[A-Z0-9_]+$/.test(failure.errno) ? ` (${failure.errno})` : ''}`;
+          : `the connection was lost${errnoText(failure.errno)}`;
       case 'tls':
         return describeTls(failure.errno, failure.host, undefined);
       case 'malformed':
@@ -387,6 +389,11 @@ export function describeTls(
     case 'host':
       return `the certificate of the server is not valid for ${shownHost}`;
     default:
-      return `the TLS handshake with ${shownHost} failed${/^[A-Z0-9_]+$/.test(errno) ? ` (${errno})` : ''}`;
+      return `the TLS handshake with ${shownHost} failed${errnoText(errno)}`;
   }
+}
+
+/** ` (<code>)` for a Node error code of the expected shape; `''` for none or any other text. */
+function errnoText(errno: string | undefined): string {
+  return errno !== undefined && ERRNO.test(errno) ? ` (${errno})` : '';
 }
