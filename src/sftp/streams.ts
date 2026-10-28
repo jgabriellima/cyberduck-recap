@@ -1,5 +1,6 @@
 import { Readable, Writable } from 'node:stream';
 import type { RemoteFsError } from '../fs/errors.js';
+import { settleOnce } from '../fs/settle-once.js';
 import {
   SFTP_STATUS,
   SftpStatusError,
@@ -470,28 +471,6 @@ class SftpWriteStream extends Writable {
     this.#writeCallback = undefined;
     pendingWrite?.(error);
   }
-}
-
-/**
- * Node joins an error passed to `_construct`'s callback with one passed to an earlier destroy()
- * into an AggregateError that has no code. So while OPEN is pending, a session ending settles the
- * construct callback instead of destroying the stream, and only the first outcome is reported.
- */
-function settleOnce(callback: (error?: Error | null) => void): {
-  readonly pending: boolean;
-  settle(error?: Error): void;
-} {
-  let pending = true;
-  return {
-    get pending() {
-      return pending;
-    },
-    settle(error?: Error): void {
-      if (!pending) return;
-      pending = false;
-      callback(error);
-    },
-  };
 }
 
 function malformedOpen(context: OperationContext): RemoteFsError {
