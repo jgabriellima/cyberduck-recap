@@ -596,12 +596,16 @@ describe('ATK-60: the AC-14 census still holds, and no new read of a foreign mes
     return out;
   }
 
-  it('the 5 sanitizeServerText and serverText hits are the ones the spec lists', async () => {
+  it('the 5 sanitizeServerText and serverText hits are the ones the spec lists, with the 3 of S3', async () => {
     const hits = (await sourceLines(SRC)).filter((line) =>
       /sanitizeServerText\(|\.serverText/.test(line),
     );
     expect(hits.map((hit) => hit.replace(/^[^:]+: /, '')).sort()).toEqual(
       [
+        // FEATURE-3: the S3 back-end's calls of its one escape point, src/s3/errors.ts.
+        'return `; the store redirected the request to the region ${this.serverText(failure.bucketRegion)}`;',
+        ': `: ${this.serverText(failure.serverMessage)}`;',
+        '`; the incomplete multipart upload ${errors.serverText(this.#uploadId)} of ${objectUrl(location)} could not be aborted:` +',
         'export function sanitizeServerText(text: string): string {',
         'this.serverText = serverText;',
         'const text = sanitizeServerText(serverText);',

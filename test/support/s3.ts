@@ -4,9 +4,9 @@
  * rename touches one file.
  *
  * Assumed API:
- * - `src/s3/s3-file-system.ts`: `new S3FileSystem(options?, internals?)`, a `RemoteFileSystem`.
- *   `internals` (design `S3Internals`, not public) takes `lookup` (the HTTPS agent's resolver)
- *   and `partLimit` (AC-43).
+ * - `src/s3/s3-file-system.ts`: `new S3FileSystem(options?)`, a `RemoteFileSystem`.
+ * - `src/s3/internals.ts` (design Option 11C, not public): `setS3Internals(fs, internals)` sets
+ *   `lookup` (the HTTPS agent's resolver) and `partLimit` (AC-43) before `connect()`.
  * - `src/s3/upload.ts`: `PART_SIZE` and `MAX_PARTS` (AC-43).
  *
  * The modules are loaded with `import()` of a computed specifier, so the tests written before the
@@ -60,12 +60,12 @@ export interface S3Internals {
 
 export type S3FileSystemConstructor = new (
   options?: S3Options,
-  internals?: S3Internals,
 ) => RemoteFileSystem;
 
 const MODULES = {
   fileSystem: '../../src/s3/s3-file-system.js',
   upload: '../../src/s3/upload.js',
+  internals: '../../src/s3/internals.js',
   index: '../../src/index.js',
 } as const;
 
@@ -103,7 +103,13 @@ export async function createS3(
   internals?: S3Internals,
 ): Promise<RemoteFileSystem> {
   const S3FileSystem = await loadS3FileSystem();
-  const fs = new S3FileSystem(options as S3Options, internals);
+  const fs = new S3FileSystem(options as S3Options);
+  if (internals !== undefined) {
+    const { setS3Internals } = (await load(MODULES.internals)) as {
+      setS3Internals: (target: RemoteFileSystem, seams: S3Internals) => void;
+    };
+    setS3Internals(fs, internals);
+  }
   onTestFinished(async () => {
     await fs.disconnect().catch(() => undefined);
   });
