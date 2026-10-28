@@ -1,6 +1,7 @@
 import { isIPv4, isIPv6 } from 'node:net';
 import type { HostKeyInfo } from '../fs/backend.js';
 import { RemoteFsError } from '../fs/errors.js';
+import { isNonEmptyString } from '../text/non-empty.js';
 
 // The protocol-neutral contract (src/fs/backend.ts) owns the shape; re-exported so the SFTP
 // options keep their public name.
@@ -73,10 +74,6 @@ export function isValidHost(host: string): boolean {
   if (isIPv6(host)) return !host.includes('%');
   if (host.length < 1 || host.length > 253) return false;
   return host.split('.').every((label) => HOST_LABEL.test(label));
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.length > 0;
 }
 
 function isSecretValue(value: unknown): value is string | Buffer {

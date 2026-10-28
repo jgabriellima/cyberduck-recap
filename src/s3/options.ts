@@ -1,5 +1,6 @@
 import type { RemoteFsError } from '../fs/errors.js';
 import { escapeUnsafeText } from '../text/escape.js';
+import { isNonEmptyString } from '../text/non-empty.js';
 import { invalidArgument } from './errors.js';
 import { bucketProblem, endpointProblem, isRegion } from './validation.js';
 
@@ -57,10 +58,6 @@ function invalid(message: string): RemoteFsError {
   return invalidArgument(message);
 }
 
-function nonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value !== '';
-}
-
 function isCa(value: unknown): boolean {
   const one = (item: unknown): boolean =>
     typeof item === 'string' || Buffer.isBuffer(item);
@@ -86,17 +83,17 @@ function validateCredentials(
       );
     }
   }
-  if (!nonEmptyString(accessKeyId)) {
+  if (!isNonEmptyString(accessKeyId)) {
     throw invalid(
       'the option credentials.accessKeyId must be a non-empty string',
     );
   }
-  if (!nonEmptyString(secretAccessKey)) {
+  if (!isNonEmptyString(secretAccessKey)) {
     throw invalid(
       'the option credentials.secretAccessKey must be a non-empty string',
     );
   }
-  if (sessionToken !== undefined && !nonEmptyString(sessionToken)) {
+  if (sessionToken !== undefined && !isNonEmptyString(sessionToken)) {
     throw invalid(
       'the option credentials.sessionToken must be a non-empty string when it is given',
     );
@@ -153,7 +150,7 @@ export function validateS3Options(input: unknown): ValidatedS3Options {
       'the option region must be a region name of lower-case letters, digits and -',
     );
   }
-  if (profile !== undefined && !nonEmptyString(profile)) {
+  if (profile !== undefined && !isNonEmptyString(profile)) {
     throw invalid('the option profile must be a non-empty string');
   }
   if (ca !== undefined && !isCa(ca)) {
