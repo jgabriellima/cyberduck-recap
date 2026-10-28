@@ -5,6 +5,10 @@
  * and decision 3 say no credential travels on a connection whose certificate is not verified,
  * and NODE_TLS_REJECT_UNAUTHORIZED=0 has no effect. So a plain HTTP STS endpoint must receive no
  * connection, whichever source of the chain makes the request.
+ *
+ * ATK-95 (credential chain tls): the same property when the chain recurses through
+ * `source_profile` (role chaining), where the SDK resolves the source profile with the options
+ * it passes down, not with the ones the caller gave the outer profile.
  */
 import { once } from 'node:events';
 import {
@@ -106,6 +110,56 @@ const SOURCES: Record<string, ProfileSource> = {
       return [sessionToken];
     },
   },
+  // ATK-95: the chain recurses into the source profile; each level must keep the checked client.
+  'role_arn whose source_profile names a web identity token (role chaining)': {
+    async prepare(setup) {
+      const token = sentinel();
+      const file = await setup.env.file('chained-web-identity-token', token);
+      await setup.env.writeConfig(
+        [
+          '[default]',
+          'region = us-east-1',
+          `role_arn = ${ROLE}`,
+          'source_profile = identity',
+          '[profile identity]',
+          'region = us-east-1',
+          `web_identity_token_file = ${file}`,
+          `role_arn = ${ROLE}-source`,
+          '',
+        ].join('\n'),
+      );
+      return [token];
+    },
+  },
+  'role_arn whose source_profile is itself a role with a source_profile (two hops)':
+    {
+      async prepare(setup) {
+        const sessionToken = sentinel();
+        await setup.env.writeCredentials(
+          [
+            '[base]',
+            'aws_access_key_id = AKIDCYBERDUCKRECAPTEST',
+            `aws_secret_access_key = ${sentinel()}`,
+            `aws_session_token = ${sessionToken}`,
+            '',
+          ].join('\n'),
+        );
+        await setup.env.writeConfig(
+          [
+            '[default]',
+            'region = us-east-1',
+            `role_arn = ${ROLE}`,
+            'source_profile = middle',
+            '[profile middle]',
+            'region = us-east-1',
+            `role_arn = ${ROLE}-middle`,
+            'source_profile = base',
+            '',
+          ].join('\n'),
+        );
+        return [sessionToken];
+      },
+    },
 };
 
 describe('A profile source of the credential chain sends no secret to a plain HTTP STS endpoint', () => {
