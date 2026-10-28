@@ -363,7 +363,12 @@ export async function loadProfiles(
   };
 }
 
-/** The SDK's Node chain (sources 1 to 4), silent, reading the same two files. */
+/**
+ * The SDK's Node chain (sources 1 to 4), silent, reading the same two files. Its STS, SSO and
+ * SSO-OIDC clients send through the instance's checked handler (`checkedHandler`), so a web
+ * identity token, an SSO token or a role's keys never travel on plain HTTP or on a connection
+ * whose certificate is not verified.
+ */
 export function chainCredentials(init: ChainInit): KeyProvider {
   const chain = fromNodeProviderChain({
     ...(init.profile === undefined ? {} : { profile: init.profile }),
@@ -371,6 +376,14 @@ export function chainCredentials(init: ChainInit): KeyProvider {
     configFilepath: init.paths.config,
     ignoreCache: true,
     logger: SILENT,
+    clientConfig: {
+      requestHandler: checkedHandler(
+        init.agent,
+        init.timeoutMs,
+        init.timeoutMs,
+      ),
+      logger: SILENT,
+    },
   });
   return async () => {
     let identity;
@@ -393,22 +406,59 @@ export function chainCredentials(init: ChainInit): KeyProvider {
   };
 }
 
+/** Why the checked handler refused a request: its endpoint is not https:. */
+export class PlainHttpRefused extends Error {
+  override readonly name = 'PlainHttpRefused';
+
+  constructor() {
+    super('the request was refused: its endpoint is not https:');
+  }
+}
+
+/**
+ * The one point every request of the back-end passes (S3 and the credential chain's STS, SSO
+ * and SSO-OIDC): an endpoint that is not https: is refused before a socket opens, whichever
+ * source named it (an option, an `AWS_ENDPOINT_URL*` variable or a profile), and every socket
+ * comes from the instance's agent, which verifies the certificate with the trusted authorities.
+ */
+class CheckedHttpHandler extends NodeHttpHandler {
+  override handle(
+    ...args: Parameters<NodeHttpHandler['handle']>
+  ): ReturnType<NodeHttpHandler['handle']> {
+    if (args[0].protocol !== 'https:') {
+      return Promise.reject(new PlainHttpRefused());
+    }
+    return super.handle(...args);
+  }
+}
+
+function checkedHandler(
+  agent: TransportSettings['agent'],
+  connectionTimeout: number,
+  socketTimeout: number,
+): NodeHttpHandler {
+  return new CheckedHttpHandler({
+    httpsAgent: agent,
+    connectionTimeout,
+    socketTimeout,
+    logger: SILENT,
+  });
+}
+
 type Idle = 'normal' | 'server-work';
 
 export function createTransport(settings: TransportSettings): S3Transport {
   const handlers: Record<Idle, NodeHttpHandler> = {
-    normal: new NodeHttpHandler({
-      httpsAgent: settings.agent,
-      connectionTimeout: settings.timeoutMs,
-      socketTimeout: settings.timeoutMs,
-      logger: SILENT,
-    }),
-    'server-work': new NodeHttpHandler({
-      httpsAgent: settings.agent,
-      connectionTimeout: settings.timeoutMs,
-      socketTimeout: serverWorkIdleMs(settings.timeoutMs),
-      logger: SILENT,
-    }),
+    normal: checkedHandler(
+      settings.agent,
+      settings.timeoutMs,
+      settings.timeoutMs,
+    ),
+    'server-work': checkedHandler(
+      settings.agent,
+      settings.timeoutMs,
+      serverWorkIdleMs(settings.timeoutMs),
+    ),
   };
   // One retry quota per instance, not one per client.
   const retryStrategy = new StandardRetryStrategy(STANDARD_ATTEMPTS);

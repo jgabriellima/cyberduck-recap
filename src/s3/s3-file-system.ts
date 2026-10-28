@@ -135,27 +135,35 @@ export class S3FileSystem implements RemoteFileSystem {
       throw error;
     }
 
-    const credentials = await this.#untilEnded(
-      resolveCredentials({
-        option: options.credentials,
-        settings,
-        env,
-        profiles,
-        paths,
-        timeoutMs: options.timeoutMs,
-        secrets: this.#secrets,
-        errors: this.#errors,
-        sdk,
-      }),
-      signal,
-    );
+    // Made before the keys are read: the credential chain's STS and SSO requests use it too.
+    const agent = createAgent(ca, internals.lookup);
+    let credentials;
+    try {
+      credentials = await this.#untilEnded(
+        resolveCredentials({
+          option: options.credentials,
+          settings,
+          env,
+          profiles,
+          paths,
+          timeoutMs: options.timeoutMs,
+          agent,
+          secrets: this.#secrets,
+          errors: this.#errors,
+          sdk,
+        }),
+        signal,
+      );
+    } catch (error) {
+      agent.destroy();
+      throw error;
+    }
     this.#errors.context = {
       endpointHost: settings.endpointHost,
       keySource: credentials.source,
       timeoutMs: options.timeoutMs,
     };
 
-    const agent = createAgent(ca, internals.lookup);
     const transport = sdk.createTransport({
       region: settings.region,
       endpoint: settings.endpoint,

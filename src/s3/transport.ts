@@ -203,6 +203,9 @@ export interface SharedFilePaths {
 export interface ChainInit {
   readonly profile: string | undefined;
   readonly paths: SharedFilePaths;
+  /** The instance's agent: the chain's STS and SSO requests verify TLS as S3's do. */
+  readonly agent: import('node:https').Agent;
+  readonly timeoutMs: number;
 }
 
 /** The module `connect()` loads with `import()` (design Option 8B). */

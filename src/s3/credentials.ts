@@ -5,6 +5,7 @@
  * show. The whole resolution is bound by `timeoutMs`, and a failure gets a fixed message that
  * names the profile and the two shared files, never a line of a file or the output of a process.
  */
+import type { Agent } from 'node:https';
 import type { RemoteFsError } from '../fs/errors.js';
 import { escapeUnsafeText } from '../text/escape.js';
 import { ProcessFailure, runCredentialProcess } from './credential-process.js';
@@ -42,6 +43,8 @@ export interface CredentialInput {
   readonly profiles: LoadedProfiles;
   readonly paths: SharedFilePaths;
   readonly timeoutMs: number;
+  /** The instance's agent, for the chain's STS and SSO requests. */
+  readonly agent: Agent;
   readonly secrets: SecretSet;
   readonly errors: S3Errors;
   readonly sdk: SdkModule;
@@ -195,7 +198,12 @@ export async function resolveCredentials(
         : `cannot read AWS credentials from ${name}`;
   } else {
     provider = remembered(
-      input.sdk.chainCredentials({ profile: selected, paths }),
+      input.sdk.chainCredentials({
+        profile: selected,
+        paths,
+        agent: input.agent,
+        timeoutMs,
+      }),
       secrets,
     );
     if (selected !== undefined) source = label(selected);
