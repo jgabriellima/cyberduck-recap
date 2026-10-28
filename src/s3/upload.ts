@@ -32,6 +32,9 @@ export const PART_SIZE = 16_777_216;
 export const MAX_PARTS = 10_000;
 /** At most 5 buffers of a part size in memory per upload: 4 in flight and 1 filling. */
 export const MAX_PARTS_IN_FLIGHT = 4;
+/** The first capacity of the part being filled; it doubles up to `PART_SIZE`. */
+const FIRST_CAPACITY = 65_536;
+const NOTHING = Buffer.alloc(0);
 
 export interface UploadTarget {
   readonly location: S3Location;
@@ -81,7 +84,11 @@ export class Uploader {
   readonly #target: UploadTarget;
   readonly #partLimit: number;
 
-  #chunks: Buffer[] = [];
+  /**
+   * The part being filled, owned by the uploader: a caller may reuse its chunk once the write
+   * callback has run, so the bytes are copied here, once, before that callback.
+   */
+  #filling: Buffer = NOTHING;
   #buffered = 0;
   #creating: Promise<string | undefined> | undefined;
   #uploadId: string | undefined;
@@ -118,15 +125,27 @@ export class Uploader {
     return this.#done;
   }
 
-  /** Takes `chunk`; resolves when it may be buffered (at most 4 parts in flight). */
+  /**
+   * Copies `chunk` into the part being filled; resolves when all of it is copied, so the caller
+   * owns `chunk` again (at most 4 parts in flight and 1 filling).
+   */
   async write(chunk: Buffer): Promise<void> {
     if (this.#first !== undefined) throw await this.#settle();
-    this.#chunks.push(chunk);
-    this.#buffered += chunk.length;
-    // A part leaves only when a byte follows it: exactly PART_SIZE bytes stay one PutObject.
-    while (this.#buffered > PART_SIZE) {
-      await this.#sendPart(this.#take(PART_SIZE));
-      if (this.#first !== undefined) throw await this.#settle();
+    let offset = 0;
+    while (offset < chunk.length) {
+      // A part leaves only when a byte follows it: exactly PART_SIZE bytes stay one PutObject.
+      if (this.#buffered === PART_SIZE) {
+        await this.#sendPart(this.#take());
+        if (this.#first !== undefined) throw await this.#settle();
+      }
+      const length = Math.min(
+        chunk.length - offset,
+        PART_SIZE - this.#buffered,
+      );
+      this.#reserve(this.#buffered + length);
+      chunk.copy(this.#filling, this.#buffered, offset, offset + length);
+      this.#buffered += length;
+      offset += length;
     }
   }
 
@@ -137,7 +156,7 @@ export class Uploader {
     if (this.#creating === undefined) {
       try {
         await this.#transport.putObject(
-          { bucket, key, body: this.#take(this.#buffered), exclusive },
+          { bucket, key, body: this.#take(), exclusive },
           this.#scope.signal,
         );
       } catch (error) {
@@ -147,7 +166,7 @@ export class Uploader {
       this.#succeed();
       return;
     }
-    if (this.#buffered > 0) await this.#sendPart(this.#take(this.#buffered));
+    if (this.#buffered > 0) await this.#sendPart(this.#take());
     await this.#drain();
     if (this.#first !== undefined) throw await this.#settle();
     try {
@@ -184,29 +203,30 @@ export class Uploader {
   }
 
   /**
-   * The first `length` bytes, copied once; the rest stays as the caller's chunks (a view of the
-   * one chunk the cut falls in). Joining all that is buffered on every part would copy a large
-   * chunk once per part and hold two copies of it.
+   * Room for `size` bytes in the part being filled. A small upload holds a small buffer, which
+   * doubles (each byte is copied at most twice in all); once a part has left, the upload is
+   * multipart and each new part gets `PART_SIZE` at once, so its bytes are copied once.
    */
-  #take(length: number): Buffer {
-    const taken: Buffer[] = [];
-    let need = length;
-    let used = 0;
-    for (const chunk of this.#chunks) {
-      if (need === 0) break;
-      if (chunk.length <= need) {
-        taken.push(chunk);
-        need -= chunk.length;
-        used += 1;
-      } else {
-        taken.push(chunk.subarray(0, need));
-        this.#chunks[used] = chunk.subarray(need);
-        need = 0;
-      }
-    }
-    this.#chunks.splice(0, used);
-    this.#buffered -= length;
-    return Buffer.concat(taken, length);
+  #reserve(size: number): void {
+    if (size <= this.#filling.length) return;
+    const capacity =
+      this.#creating === undefined
+        ? Math.min(
+            PART_SIZE,
+            Math.max(size, FIRST_CAPACITY, this.#filling.length * 2),
+          )
+        : PART_SIZE;
+    const grown = Buffer.allocUnsafe(capacity);
+    this.#filling.copy(grown, 0, 0, this.#buffered);
+    this.#filling = grown;
+  }
+
+  /** The filled bytes, handed over with their buffer: the uploader never writes to it again. */
+  #take(): Buffer {
+    const taken = this.#filling.subarray(0, this.#buffered);
+    this.#filling = NOTHING;
+    this.#buffered = 0;
+    return taken;
   }
 
   #ensureMultipart(): Promise<string | undefined> {
