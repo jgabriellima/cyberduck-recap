@@ -183,14 +183,30 @@ export class Uploader {
     this.#markSettled();
   }
 
+  /**
+   * The first `length` bytes, copied once; the rest stays as the caller's chunks (a view of the
+   * one chunk the cut falls in). Joining all that is buffered on every part would copy a large
+   * chunk once per part and hold two copies of it.
+   */
   #take(length: number): Buffer {
-    const all = Buffer.concat(this.#chunks, this.#buffered);
-    const part = all.subarray(0, length);
-    // A copy: a view would keep the whole joined buffer alive until the next part leaves.
-    const rest = Buffer.from(all.subarray(length));
-    this.#chunks = rest.length === 0 ? [] : [rest];
-    this.#buffered = rest.length;
-    return part;
+    const taken: Buffer[] = [];
+    let need = length;
+    let used = 0;
+    for (const chunk of this.#chunks) {
+      if (need === 0) break;
+      if (chunk.length <= need) {
+        taken.push(chunk);
+        need -= chunk.length;
+        used += 1;
+      } else {
+        taken.push(chunk.subarray(0, need));
+        this.#chunks[used] = chunk.subarray(need);
+        need = 0;
+      }
+    }
+    this.#chunks.splice(0, used);
+    this.#buffered -= length;
+    return Buffer.concat(taken, length);
   }
 
   #ensureMultipart(): Promise<string | undefined> {

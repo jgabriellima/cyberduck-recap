@@ -147,8 +147,12 @@ export class S3ReadStream extends Readable {
     );
   }
 
+  /** Starts the idle bound again; an armed watchdog is refreshed, not replaced, on each chunk. */
   #arm(): void {
-    this.#disarm();
+    if (this.#watchdog !== undefined) {
+      this.#watchdog.refresh();
+      return;
+    }
     this.#watchdog = setTimeout(() => {
       this.#fail(
         this.#lost(`the store sent nothing for ${this.#input.timeoutMs} ms`),
