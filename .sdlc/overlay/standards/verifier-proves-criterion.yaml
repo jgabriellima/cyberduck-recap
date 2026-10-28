@@ -2,8 +2,8 @@ apiVersion: sdlc/v1
 kind: Standard
 metadata:
   id: cyberduck/standard.verifier-proves-criterion
-  version: 1.0.0
-  summary: The Verifier of an acceptance criterion checks the whole criterion, with its bound, scope and list
+  version: 1.1.0
+  summary: The Verifier of an acceptance criterion checks the whole criterion, and a negative check shows its path is live
   description: >
     From BUG-2's learn node (category testing, owner approved). Insights:
     gate.reworked:sdlc/gate.spec-challenged sent work back 10 times over 3 runs (up to 4 rounds in
@@ -22,6 +22,14 @@ metadata:
     asserts at most 1). The same holds for a scope (every path the criterion names, also
     test/support) and for a list (an allow-list is checked as an allow-list, not as a deny-list of
     some names).
+    Sharpened in FEATURE-3 (version 1.1.0): a negative Verifier can pass with no path at all. AC-51
+    (test/adversarial/s3-secrets.test.ts) asserted that no secret reaches an http: STS or SSO
+    endpoint, but pointed those endpoints at a closed port, so no request could arrive whatever
+    the code did. The code review (sdlc/gate.code-review, persona security) then showed with a
+    live plain-HTTP listener that the SDK credential chain sent the web identity token in clear
+    (3 requests), and ATK-92 found the same for a profile source. The tests that hold now
+    (test/adversarial/s3-credential-chain-tls.test.ts) listen on the endpoint and add a live
+    trusted-https control that does receive the request.
     Relation to other rules: baseline/standard.tests asks that changed behaviour has passing
     tests; .claude/rules/testing-evidence.md asks that the Verifier names the test, that it fails
     without the change, and that it asserts an observable outcome. This standard adds that the
@@ -29,13 +37,16 @@ metadata:
     Enforcement: judged, with no gate. sdlc/gate.acceptance-covered and
     sdlc/gate.acceptance-authored check only that each criterion has a passing test, and no tool
     of the toolchain compares the prose of a criterion with the bound, scope or list a test
-    checks. The planner meets it at specify; sdlc/gate.spec-challenged (the ambiguity hunter)
-    judges it at the exit of specify, and sdlc/gate.code-review judges the finished tests.
+    checks, or finds a negative test with no live path. The planner meets it at specify;
+    sdlc/gate.spec-challenged (the ambiguity hunter) judges it at the exit of specify, and
+    sdlc/gate.code-review judges the finished tests.
 spec:
   category: testing
   statement: >-
     The Verifier of each acceptance criterion proves the whole criterion: it checks the same bound,
     scope and list that the criterion states, so no outcome fails the criterion and still passes
     its Verifier. When a test waits up to a tolerance, the criterion states that bound, or the
-    Verifier also asserts the tighter bound the criterion states.
+    Verifier also asserts the tighter bound the criterion states. A Verifier that asserts something
+    does not happen (no request, no secret sent, no write) listens where it would happen, and a
+    control in the same test shows that path receives it when the guard allows it.
   applies_to: { kinds: [feature, bug, refinement, incident] }

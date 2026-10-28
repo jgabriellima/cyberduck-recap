@@ -66,7 +66,7 @@ const rows: readonly (readonly [string, readonly string[], string])[] = [
   [
     'scheme with no back-end',
     ['ls', 'ftp://u@h/'],
-    usage("no back-end for the scheme 'ftp' (registered: mem, sftp)"),
+    usage("no back-end for the scheme 'ftp' (registered: mem, s3, sftp)"),
   ],
   ['port 0', ['ls', 'mem://u@h:0/'], usage('the port must be 1-65535, got 0')],
   [

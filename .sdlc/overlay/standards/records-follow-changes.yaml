@@ -2,15 +2,27 @@ apiVersion: sdlc/v1
 kind: Standard
 metadata:
   id: cyberduck/standard.records-follow-changes
-  version: 1.0.0
-  summary: A change updates the design record or doc comment it makes untrue
+  version: 1.1.0
+  summary: A change keeps its design record and doc comments true, and every name they give exists
   description: >
     From FEATURE-1's code review: CHUNK_SIZE changed from 32 KiB to 31 KiB while the WINDOW doc
     comment still said 512 KiB in flight, and design.md did not record entries.ts or the new chunk
-    size. No tool compares prose with code: the review judges it.
+    size.
+    Sharpened in FEATURE-3 (version 1.1.0). The record named files that the change never made, so
+    the 1.0.0 wording ("alters a value") did not reach them. The code review (sdlc/gate.code-review,
+    personas performance, standards and maintainability) found that design.md SC-3 named
+    test/s3/socket-pool.test.ts and SE-6 named test/s3/settings.test.ts, and neither file existed
+    on feat/FEATURE-3. Doc comments named a test that did not exist and a function codeText that
+    src/s3/errors.ts did not define. Insights rank this standard first among the hotspots of
+    the project (score 21.9, high), over FEATURE-1 and FEATURE-3.
+    Enforcement: for doc comments, test/adversarial/doc-comment-references.test.ts (ATK-93, in the
+    unit-tests tool) checks that every repository path a comment names exists and every name() a
+    comment in src/ gives is defined in src/. No tool checks design.md: the review judges it.
 spec:
   category: comments
   statement: >-
     A change that alters a value, module or rule recorded in the work item's design.md or in a doc
-    comment updates that record in the same change.
+    comment updates that record in the same change. Every file, test and function that design.md
+    or a doc comment names exists on the branch; when the work replaces a planned test or module,
+    the record names the replacement.
   applies_to: { kinds: [feature, bug, refinement, incident, chore] }

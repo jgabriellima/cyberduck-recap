@@ -25,5 +25,7 @@ export {
   type ResolvedBackend,
   type WriteStreamOptions,
 } from './fs/index.js';
+export { S3FileSystem } from './s3/s3-file-system.js';
+export type { S3FileSystemOptions } from './s3/options.js';
 export { SftpFileSystem } from './sftp/sftp-file-system.js';
 export type { HostKeyInfo, SftpFileSystemOptions } from './sftp/options.js';

@@ -51,8 +51,18 @@ async function sourceFiles(dir: string): Promise<string[]> {
   return out;
 }
 
+/**
+ * FEATURE-3: the S3 back-end escapes server text at its own one point, `serverText` of
+ * src/s3/errors.ts (cyberduck/standard.secrets-redacted-at-output), and calls it at these sites.
+ */
+const S3_SERVER_TEXT_SITES = [
+  'return `; the store redirected the request to the region ${this.serverText(failure.bucketRegion)}`;',
+  ': `: ${this.serverText(failure.serverMessage)}`;',
+  '`; the incomplete multipart upload ${errors.serverText(this.#uploadId)} of ${objectUrl(location)} could not be aborted:` +',
+];
+
 describe('ATK-47: no new path carries server text past sanitizeServerText (AC-14)', () => {
-  it('the source holds exactly the 5 call sites the spec lists', async () => {
+  it('the source holds exactly the 5 call sites the spec lists, and the 3 of the S3 back-end', async () => {
     const pattern = /sanitizeServerText\(|\.serverText/;
     const hits: string[] = [];
     for (const file of await sourceFiles(SRC)) {
@@ -62,8 +72,9 @@ describe('ATK-47: no new path carries server text past sanitizeServerText (AC-14
           hits.push(`${file.slice(SRC.length)}: ${line.trim()}`);
       }
     }
-    expect(hits).toHaveLength(5);
+    expect(hits).toHaveLength(8);
     const expected = [
+      ...S3_SERVER_TEXT_SITES,
       'export function sanitizeServerText(text: string): string {',
       'this.serverText = serverText;',
       'const text = sanitizeServerText(serverText);',
