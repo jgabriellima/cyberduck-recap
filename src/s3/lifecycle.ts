@@ -24,11 +24,6 @@ export class Lifecycle {
     return this.#state;
   }
 
-  /** The signal of the current generation. */
-  get signal(): AbortSignal {
-    return this.#controller.signal;
-  }
-
   /** Starts a new generation. */
   startConnecting(): AbortSignal {
     this.#controller = new AbortController();

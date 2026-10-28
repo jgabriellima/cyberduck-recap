@@ -7,7 +7,7 @@ import { Writable } from 'node:stream';
 import type { RemoteFsError } from '../fs/errors.js';
 import { noObjectWritten, objectUrl } from './errors.js';
 import type { OperationScope } from './lifecycle.js';
-import { hasKeysUnder } from './listing.js';
+import { hasKeysUnder, headIfObject } from './listing.js';
 import type { S3Context } from './operations.js';
 import type { S3Location } from './paths.js';
 import { S3TransportError } from './transport.js';
@@ -61,20 +61,8 @@ export class S3WriteStream extends Writable {
     const key = location.key;
     try {
       if (await hasKeysUnder(transport, bucket, `${key}/`, scope.signal)) {
-        let object = true;
-        try {
-          await transport.headObject(bucket, key, scope.signal);
-        } catch (error) {
-          if (
-            !(error instanceof S3TransportError) ||
-            error.failure.kind !== 'reply' ||
-            error.failure.status !== 404
-          ) {
-            throw error;
-          }
-          object = false;
-        }
-        if (!object) throw isFolder('a folder');
+        const head = await headIfObject(transport, bucket, key, scope.signal);
+        if (head === undefined) throw isFolder('a folder');
         if (exclusive) {
           throw errors.fail(
             'ALREADY_EXISTS',

@@ -161,6 +161,18 @@ export function replyCode(failure: S3Failure): string | undefined {
   return CODE_OF_STATUS[failure.status];
 }
 
+/**
+ * Whether a failed request on key `k` means that no object `k` exists: the one rule of the stat,
+ * the read, the write and every check that comes before a change.
+ */
+export function isNoSuchObject(failure: S3Failure): boolean {
+  return (
+    failure.kind === 'reply' &&
+    codeOf(failure) === 'NOT_FOUND' &&
+    failure.code !== 'NoSuchBucket'
+  );
+}
+
 /** The RemoteFsError code of a failure of an operation (not of the probe). */
 export function codeOf(failure: S3Failure): RemoteFsErrorCode {
   switch (failure.kind) {

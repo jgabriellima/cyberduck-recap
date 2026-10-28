@@ -17,9 +17,12 @@ import {
   type S3Errors,
 } from './errors.js';
 import {
+  directoryEntry,
   hasKeysUnder,
+  headIfObject,
   isSize,
   isValidDate,
+  keysUnder,
   listBuckets,
   listDirectory,
   toSeconds,
@@ -61,21 +64,8 @@ function failed(
   };
 }
 
-function isMissing(error: unknown): error is S3TransportError {
-  return (
-    error instanceof S3TransportError && codeOf(error.failure) === 'NOT_FOUND'
-  );
-}
-
-function directoryEntry(location: S3Location): RemoteEntry {
-  return {
-    name: nameOf(location.path),
-    path: location.path,
-    type: 'directory',
-    size: 0,
-    modifiedAt: new Date(0),
-    permissions: undefined,
-  };
+function directoryAt(location: S3Location): RemoteEntry {
+  return directoryEntry(nameOf(location.path), location.path);
 }
 
 function bucketOf(location: S3Location): string {
@@ -90,13 +80,13 @@ async function headFile(
   key: string,
   signal: AbortSignal,
 ): Promise<RemoteEntry | undefined> {
-  let head;
-  try {
-    head = await context.transport.headObject(bucketOf(location), key, signal);
-  } catch (error) {
-    if (isMissing(error)) return undefined;
-    throw error;
-  }
+  const head = await headIfObject(
+    context.transport,
+    bucketOf(location),
+    key,
+    signal,
+  );
+  if (head === undefined) return undefined;
   if (!isSize(head.contentLength)) {
     throw new S3TransportError({ kind: 'malformed' });
   }
@@ -181,20 +171,20 @@ export async function stat(
   location: S3Location,
   signal: AbortSignal,
 ): Promise<RemoteEntry> {
-  if (location.root) return directoryEntry(location);
+  if (location.root) return directoryAt(location);
   const fail = failed(context, 'stat', location);
   try {
     const bucket = bucketOf(location);
     if (location.key === undefined) {
       await hasKeysUnder(context.transport, bucket, '', signal);
-      return directoryEntry(location);
+      return directoryAt(location);
     }
     const file = await headFile(context, location, location.key, signal);
     if (file !== undefined) return file;
     if (
       await hasKeysUnder(context.transport, bucket, `${location.key}/`, signal)
     ) {
-      return directoryEntry(location);
+      return directoryAt(location);
     }
   } catch (error) {
     fail(error);
@@ -360,13 +350,7 @@ export async function remove(
       return;
     }
     const marker = `${key}/`;
-    const page = await transport.listObjects(
-      { bucket, prefix: marker, maxKeys: 2 },
-      signal,
-    );
-    const keys = (Array.isArray(page.contents) ? page.contents : []).map(
-      (item) => (item as { Key?: unknown } | null)?.Key,
-    );
+    const keys = await keysUnder(transport, bucket, marker, 2, signal);
     if (keys.length === 1 && keys[0] === marker) {
       await transport.deleteObject(bucket, marker, signal);
       return;

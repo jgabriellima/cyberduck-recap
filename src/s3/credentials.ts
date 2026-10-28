@@ -7,11 +7,15 @@
  */
 import type { Agent } from 'node:https';
 import type { RemoteFsError } from '../fs/errors.js';
-import { escapeUnsafeText } from '../text/escape.js';
 import { ProcessFailure, runCredentialProcess } from './credential-process.js';
 import type { S3Errors } from './errors.js';
 import type { SecretSet } from './secrets.js';
-import { profileSettings, type S3Settings } from './settings.js';
+import {
+  DEFAULT_PROFILE,
+  profileLabel,
+  profileSettings,
+  type S3Settings,
+} from './settings.js';
 import {
   CredentialsUnavailable,
   type KeyProvider,
@@ -22,7 +26,7 @@ import {
 } from './transport.js';
 
 /** The SDK asks for new keys this long before they expire; the own runner keeps the same rule. */
-const REFRESH_WINDOW_MS = 300_000;
+export const REFRESH_WINDOW_MS = 300_000;
 
 export interface ResolvedCredentials {
   readonly provider: KeyProvider;
@@ -50,10 +54,6 @@ export interface CredentialInput {
   readonly sdk: SdkModule;
 }
 
-function label(name: string): string {
-  return `profile ${escapeUnsafeText(name).slice(0, 128)}`;
-}
-
 /**
  * A profile whose keys only its `credential_process` gives, in the SDK's own order (assume role,
  * static keys, web identity, SSO, then process): only then does the back-end run the process.
@@ -74,8 +74,15 @@ function processCommandOf(
   return otherSource ? undefined : command;
 }
 
-/** Keys from `inner`, kept until 5 minutes before they expire; each secret joins the set. */
-function remembered(inner: KeyProvider, secrets: SecretSet): KeyProvider {
+/**
+ * Keys from `inner`, kept until `REFRESH_WINDOW_MS` before they expire (keys with no expiry are
+ * kept); concurrent callers share one pending refresh, a failure becomes CredentialsUnavailable
+ * and the next call tries again. Each secret joins the set.
+ */
+export function remembered(
+  inner: KeyProvider,
+  secrets: SecretSet,
+): KeyProvider {
   let current: S3Keys | undefined;
   let pending: Promise<S3Keys> | undefined;
   return () => {
@@ -166,7 +173,7 @@ export async function resolveCredentials(
     profileSettings(profiles, selected) === undefined
   ) {
     throw authFailed(
-      `cannot read AWS credentials: ${label(selected)} was not found`,
+      `cannot read AWS credentials: ${profileLabel(selected)} was not found`,
     );
   }
   const envKeys =
@@ -175,7 +182,7 @@ export async function resolveCredentials(
     env.AWS_SECRET_ACCESS_KEY !== undefined &&
     env.AWS_SECRET_ACCESS_KEY !== '';
   // With a profile selected the chain skips the environment keys; else it reads them first.
-  const chainProfile = selected ?? (envKeys ? undefined : 'default');
+  const chainProfile = selected ?? (envKeys ? undefined : DEFAULT_PROFILE);
   const chainSettings =
     chainProfile === undefined
       ? undefined
@@ -186,7 +193,7 @@ export async function resolveCredentials(
   let source: string;
   let explain: (error: unknown) => string;
   if (chainProfile !== undefined && command !== undefined) {
-    const name = label(chainProfile);
+    const name = profileLabel(chainProfile);
     provider = remembered(
       () => runCredentialProcess(command, timeoutMs),
       secrets,
@@ -206,14 +213,14 @@ export async function resolveCredentials(
       }),
       secrets,
     );
-    if (selected !== undefined) source = label(selected);
+    if (selected !== undefined) source = profileLabel(selected);
     else if (envKeys) source = 'environment';
-    else source = label('default');
+    else source = profileLabel(DEFAULT_PROFILE);
     const nothing =
       selected === undefined && !envKeys && chainSettings === undefined;
     explain = () =>
       nothing
-        ? `no AWS credentials were found: no profile is selected, the environment holds no keys and ${label('default')} was not found`
+        ? `no AWS credentials were found: no profile is selected, the environment holds no keys and ${profileLabel(DEFAULT_PROFILE)} was not found`
         : `cannot read AWS credentials from ${source}`;
   }
 

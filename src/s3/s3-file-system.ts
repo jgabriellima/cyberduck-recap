@@ -19,7 +19,7 @@ import {
 import { PathProblem, readPath, type S3Location } from './paths.js';
 import { S3ReadStream } from './read-stream.js';
 import { SecretSet } from './secrets.js';
-import { resolveSettings, DEFAULT_REGION } from './settings.js';
+import { DEFAULT_REGION, endpointHostOf, resolveSettings } from './settings.js';
 import {
   createAgent,
   expiryOf,
@@ -52,10 +52,10 @@ export class S3FileSystem implements RemoteFileSystem {
     this.#secrets.add(this.#options.credentials?.secretAccessKey);
     this.#secrets.add(this.#options.credentials?.sessionToken);
     this.#errors = new S3Errors(this.#secrets, {
-      endpointHost:
-        this.#options.endpoint === undefined
-          ? `s3.${this.#options.region ?? DEFAULT_REGION}.amazonaws.com`
-          : new URL(this.#options.endpoint).host,
+      endpointHost: endpointHostOf(
+        this.#options.endpoint,
+        this.#options.region ?? DEFAULT_REGION,
+      ),
       keySource: 'option credentials',
       timeoutMs: this.#options.timeoutMs,
     });

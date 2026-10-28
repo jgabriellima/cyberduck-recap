@@ -12,7 +12,7 @@ import type { LoadedProfiles } from './transport.js';
 import { endpointProblem, isRegion } from './validation.js';
 
 export const DEFAULT_REGION = 'us-east-1';
-const DEFAULT_PROFILE = 'default';
+export const DEFAULT_PROFILE = 'default';
 
 export interface S3Settings {
   /** The profile the person selected (option, else `AWS_PROFILE`); `undefined`: none. */
@@ -45,7 +45,8 @@ export function profileSettings(
   return { ...fromCredentials, ...fromConfig };
 }
 
-function profileLabel(name: string): string {
+/** A profile as messages name it: escaped and cut, since the name comes from a file. */
+export function profileLabel(name: string): string {
   return `profile ${escapeUnsafeText(name).slice(0, 128)}`;
 }
 
@@ -103,9 +104,16 @@ export function resolveSettings(
     settingsProfile,
     region,
     endpoint,
-    endpointHost:
-      endpoint === undefined
-        ? `s3.${region}.amazonaws.com`
-        : new URL(endpoint).host,
+    endpointHost: endpointHostOf(endpoint, region),
   };
+}
+
+/** The host requests go to: the custom endpoint's, else AWS's endpoint for `region`. */
+export function endpointHostOf(
+  endpoint: string | undefined,
+  region: string,
+): string {
+  return endpoint === undefined
+    ? `s3.${region}.amazonaws.com`
+    : new URL(endpoint).host;
 }

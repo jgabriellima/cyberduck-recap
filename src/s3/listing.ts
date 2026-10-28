@@ -1,11 +1,16 @@
 /**
- * Listings (spec "How S3 maps onto RemoteFileSystem"): every page of `ListBuckets` and
+ * What a bucket holds (spec "How S3 maps onto RemoteFileSystem"): every page of `ListBuckets` and
  * `ListObjectsV2`, each value of a page validated (cyberduck/standard.untrusted-server-replies),
- * and the entries of one directory level.
+ * the entries of one directory level, and whether an object or keys under a prefix exist.
  */
 import type { RemoteEntry } from '../fs/types.js';
+import { isNoSuchObject } from './errors.js';
 import { entryPath } from './paths.js';
-import { S3TransportError, type S3Transport } from './transport.js';
+import {
+  S3TransportError,
+  type ObjectHead,
+  type S3Transport,
+} from './transport.js';
 
 /** A reply that is not valid for its request: OPERATION_FAILED for the caller. */
 function malformed(): S3TransportError {
@@ -15,7 +20,7 @@ function malformed(): S3TransportError {
 const EPOCH = 0;
 const HIDDEN_NAMES: ReadonlySet<string> = new Set(['', '.', '..']);
 
-function directory(name: string, path: string): RemoteEntry {
+export function directoryEntry(name: string, path: string): RemoteEntry {
   return {
     name,
     path,
@@ -70,7 +75,7 @@ export async function listBuckets(
       if (typeof name !== 'string' || name === '' || name.includes('/')) {
         throw malformed();
       }
-      entries.set(name, directory(name, `/${name}`));
+      entries.set(name, directoryEntry(name, `/${name}`));
     }
     // ListBuckets has no IsTruncated: a token means another page.
     token = nextToken(
@@ -157,12 +162,33 @@ export async function listDirectory(
       if (HIDDEN_NAMES.has(name)) continue;
       entries.set(
         `directory ${name}`,
-        directory(name, entryPath(directoryPath, name)),
+        directoryEntry(name, entryPath(directoryPath, name)),
       );
     }
     token = nextToken(page.truncated, page.token, seen);
   } while (token !== undefined);
   return { entries: [...entries.values()], anyKey };
+}
+
+/** Up to `maxKeys` keys that start with `prefix`, each checked to be a key under it. */
+export async function keysUnder(
+  transport: S3Transport,
+  bucket: string,
+  prefix: string,
+  maxKeys: number,
+  signal: AbortSignal,
+): Promise<string[]> {
+  const page = await transport.listObjects({ bucket, prefix, maxKeys }, signal);
+  if (page.contents !== undefined && !Array.isArray(page.contents))
+    throw malformed();
+  const keys = ((page.contents ?? []) as unknown[]).map(
+    (item) => (item as { Key?: unknown } | null)?.Key,
+  );
+  if (keys.length > maxKeys) throw malformed();
+  return keys.map((key) => {
+    if (typeof key !== 'string' || !key.startsWith(prefix)) throw malformed();
+    return key;
+  });
 }
 
 /** Whether any key starts with `prefix` (one key is enough). */
@@ -172,11 +198,22 @@ export async function hasKeysUnder(
   prefix: string,
   signal: AbortSignal,
 ): Promise<boolean> {
-  const page = await transport.listObjects(
-    { bucket, prefix, maxKeys: 1 },
-    signal,
-  );
-  if (page.contents !== undefined && !Array.isArray(page.contents))
-    throw malformed();
-  return Array.isArray(page.contents) && page.contents.length > 0;
+  return (await keysUnder(transport, bucket, prefix, 1, signal)).length > 0;
+}
+
+/** The head of object `key`, or `undefined` when no object has this key (`isNoSuchObject`). */
+export async function headIfObject(
+  transport: S3Transport,
+  bucket: string,
+  key: string,
+  signal: AbortSignal,
+): Promise<ObjectHead | undefined> {
+  try {
+    return await transport.headObject(bucket, key, signal);
+  } catch (error) {
+    if (error instanceof S3TransportError && isNoSuchObject(error.failure)) {
+      return undefined;
+    }
+    throw error;
+  }
 }

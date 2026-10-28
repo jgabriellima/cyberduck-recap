@@ -5,12 +5,11 @@
  */
 import { Readable } from 'node:stream';
 import type { RemoteFsError } from '../fs/errors.js';
-import { objectUrl } from './errors.js';
+import { isNoSuchObject, objectUrl } from './errors.js';
 import type { OperationScope } from './lifecycle.js';
 import { hasKeysUnder } from './listing.js';
 import type { S3Context } from './operations.js';
 import type { S3Location } from './paths.js';
-import { codeOf } from './errors.js';
 import { S3TransportError } from './transport.js';
 
 export interface ReadStreamInput {
@@ -59,11 +58,8 @@ export class S3ReadStream extends Readable {
     } catch (error) {
       if (!(error instanceof S3TransportError)) throw error;
       const { failure } = error;
-      const noSuchKey =
-        failure.kind === 'reply' &&
-        codeOf(failure) === 'NOT_FOUND' &&
-        failure.code !== 'NoSuchBucket';
-      if (!noSuchKey) throw errors.fromFailure(failure, 'read', location);
+      if (!isNoSuchObject(failure))
+        throw errors.fromFailure(failure, 'read', location);
       let folder: boolean;
       try {
         folder = await hasKeysUnder(
