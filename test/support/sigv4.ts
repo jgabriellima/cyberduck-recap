@@ -2,8 +2,9 @@
  * AWS Signature Version 4 for the fake S3 server: it rebuilds the canonical request from what it
  * received and checks the `Authorization` header against the keys the test gave it. The S3
  * rules apply: the path is signed as it was sent (no second encoding, no normalisation), the
- * payload hash is the `x-amz-content-sha256` header. `sigv4.test.ts` checks this file against
- * AWS's published example, so the server's verdict does not rest on the back-end's own signer.
+ * payload hash is the `x-amz-content-sha256` header. `test/s3/sigv4.test.ts` checks this file
+ * against AWS's four published S3 examples, so the server's verdict does not rest on the
+ * back-end's own signer or the SDK's (design Option 9E).
  */
 import { createHash, createHmac } from 'node:crypto';
 
