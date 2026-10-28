@@ -1,13 +1,15 @@
 /**
  * Attacks on the transport of the credential chain (FEATURE-3 spec "Problem", decision 3, design
- * SE-3): the STS, SSO and SSO-OIDC requests of the AWS chain carry a web identity token, an SSO
- * access token or an SSO refresh token and client secret. An endpoint that is plain HTTP, or
+ * SE-3): the STS, SSO, SSO-OIDC and sign-in requests of the AWS chain carry a web identity token
+ * (from the environment or a profile), a source's session token for `role_arn`, an SSO access
+ * token, an SSO refresh token and client secret, or a sign-in refresh token. Every source of the
+ * chain that makes a request is a row of the matrix below. An endpoint that is plain HTTP, or
  * TLS with a certificate no trusted authority issued, must never receive one of them, also with
  * `NODE_TLS_REJECT_UNAUTHORIZED=0`, whichever source names the endpoint. A listener that the
  * test authority given in `ca` signs does receive the request: the endpoint source is honoured
  * and the chain trusts the same authorities as the S3 requests.
  */
-import { createHash } from 'node:crypto';
+import { createHash, generateKeyPairSync } from 'node:crypto';
 import { once } from 'node:events';
 import { mkdir, writeFile } from 'node:fs/promises';
 import {
@@ -27,7 +29,7 @@ import { everythingIn, rejection, useS3, type S3Setup } from '../support/s3.js';
 /** Options with no `credentials`, so the back-end reads the standard AWS chain. */
 const CHAIN = { credentials: undefined } as const;
 
-type Service = 'sts' | 'sso' | 'sso_oidc';
+type Service = 'sts' | 'sso' | 'sso_oidc' | 'signin';
 type Listener = 'plain http' | 'untrusted https' | 'trusted https';
 
 interface Recording {
@@ -95,6 +97,7 @@ const SERVICE_VARIABLE: Record<Service, string> = {
   sts: 'AWS_ENDPOINT_URL_STS',
   sso: 'AWS_ENDPOINT_URL_SSO',
   sso_oidc: 'AWS_ENDPOINT_URL_SSO_OIDC',
+  signin: 'AWS_ENDPOINT_URL_SIGNIN',
 };
 
 /** Config lines that point the default profile's `service` at `url` (a `services` section). */
@@ -111,6 +114,20 @@ interface Source {
   readonly service: Service;
   /** Writes the files and variables of the source; returns the secrets it holds. */
   prepare(setup: S3Setup, configExtra: string[]): Promise<string[]>;
+}
+
+const ROLE_ARN = 'arn:aws:iam::123456789012:role/cyberduck-recap-test';
+
+/** The config file: a default profile of `lines`, pointed at the `services` section if any. */
+function defaultProfile(lines: string[], configExtra: string[]): string {
+  return [
+    '[default]',
+    'region = us-east-1',
+    ...lines,
+    ...(configExtra.length > 0 ? ['services = cyberduck-recap-test'] : []),
+    ...configExtra,
+    '',
+  ].join('\n');
 }
 
 const SSO_START_URL = 'https://cyberduck-recap-test.awsapps.com/start';
@@ -155,6 +172,97 @@ function ssoConfig(session: string, configExtra: string[]): string {
 }
 
 const SOURCES: Record<string, Source> = {
+  'a web identity token named in a profile (STS)': {
+    service: 'sts',
+    async prepare(setup, configExtra) {
+      const token = sentinel();
+      const file = await setup.env.file('profile-web-identity-token', token);
+      await setup.env.writeConfig(
+        defaultProfile(
+          [`web_identity_token_file = ${file}`, `role_arn = ${ROLE_ARN}`],
+          configExtra,
+        ),
+      );
+      return [token];
+    },
+  },
+  "a source profile's session token for role_arn (STS)": {
+    service: 'sts',
+    async prepare(setup, configExtra) {
+      const sessionToken = sentinel();
+      await setup.env.writeCredentials(
+        [
+          '[source]',
+          'aws_access_key_id = AKIDCYBERDUCKRECAPTEST',
+          `aws_secret_access_key = ${sentinel()}`,
+          `aws_session_token = ${sessionToken}`,
+          '',
+        ].join('\n'),
+      );
+      await setup.env.writeConfig(
+        defaultProfile(
+          [`role_arn = ${ROLE_ARN}`, 'source_profile = source'],
+          configExtra,
+        ),
+      );
+      return [sessionToken];
+    },
+  },
+  "the environment's session token for role_arn with credential_source (STS)": {
+    service: 'sts',
+    async prepare(setup, configExtra) {
+      const sessionToken = sentinel();
+      // AWS_PROFILE makes the chain skip its environment source and read the profile.
+      setup.env.set({
+        AWS_PROFILE: 'default',
+        AWS_ACCESS_KEY_ID: 'AKIDCYBERDUCKRECAPTEST',
+        AWS_SECRET_ACCESS_KEY: sentinel(),
+        AWS_SESSION_TOKEN: sessionToken,
+      });
+      await setup.env.writeConfig(
+        defaultProfile(
+          [`role_arn = ${ROLE_ARN}`, 'credential_source = Environment'],
+          configExtra,
+        ),
+      );
+      return [sessionToken];
+    },
+  },
+  "an expired sign-in session's refresh token (sign-in)": {
+    service: 'signin',
+    async prepare(setup, configExtra) {
+      const refreshToken = sentinel();
+      const session = `arn:aws:iam::123456789012:user/${sentinel().slice(0, 12)}`;
+      const cache = join(setup.env.dir, 'login-cache');
+      await mkdir(cache, { recursive: true });
+      setup.env.set({ AWS_LOGIN_CACHE_DIRECTORY: cache });
+      const dpopKey = generateKeyPairSync('ec', { namedCurve: 'prime256v1' })
+        .privateKey.export({ type: 'sec1', format: 'pem' })
+        .toString();
+      // The SDK names the cache file after the SHA-256 of the session name.
+      const file = createHash('sha256').update(session).digest('hex');
+      await writeFile(
+        join(cache, `${file}.json`),
+        JSON.stringify({
+          accessToken: {
+            accessKeyId: 'AKIDCYBERDUCKRECAPTEST',
+            secretAccessKey: sentinel(),
+            sessionToken: sentinel(),
+            accountId: '123456789012',
+            expiresAt: '2020-01-01T00:00:00Z',
+          },
+          clientId: 'arn:aws:signin:::devtools/same-device',
+          refreshToken,
+          dpopKey,
+        }),
+      );
+      await setup.env.writeConfig(
+        defaultProfile([`login_session = ${session}`], configExtra),
+      );
+      // The access token has expired: only the refresh request carries a secret.
+      return [refreshToken];
+    },
+  },
   'a web identity token (STS)': {
     service: 'sts',
     async prepare(setup, configExtra) {

@@ -364,26 +364,29 @@ export async function loadProfiles(
 }
 
 /**
- * The SDK's Node chain (sources 1 to 4), silent, reading the same two files. Its STS, SSO and
- * SSO-OIDC clients send through the instance's checked handler (`checkedHandler`), so a web
- * identity token, an SSO token or a role's keys never travel on plain HTTP or on a connection
- * whose certificate is not verified.
+ * The SDK's Node chain (sources 1 to 4), silent, reading the same two files. Every client the
+ * chain makes (STS for `role_arn` and web identity, SSO, SSO-OIDC, sign-in) sends through the
+ * instance's checked handler (`checkedHandler`), so a web identity token, an SSO token or a
+ * role's keys never travel on plain HTTP or on a connection whose certificate is not verified.
+ *
+ * The SDK passes its configuration to those clients by two channels, and its sources do not all
+ * read the same one: the web identity of a profile (`web_identity_token_file` in the config file)
+ * drops `clientConfig` and keeps only `parentClientConfig`. So the one checked configuration is
+ * given in both, and no source of the chain can reach the SDK's default handler.
  */
 export function chainCredentials(init: ChainInit): KeyProvider {
+  const checked = {
+    requestHandler: checkedHandler(init.agent, init.timeoutMs, init.timeoutMs),
+    logger: SILENT,
+  };
   const chain = fromNodeProviderChain({
     ...(init.profile === undefined ? {} : { profile: init.profile }),
     filepath: init.paths.credentials,
     configFilepath: init.paths.config,
     ignoreCache: true,
     logger: SILENT,
-    clientConfig: {
-      requestHandler: checkedHandler(
-        init.agent,
-        init.timeoutMs,
-        init.timeoutMs,
-      ),
-      logger: SILENT,
-    },
+    clientConfig: checked,
+    parentClientConfig: checked,
   });
   return async () => {
     let identity;
